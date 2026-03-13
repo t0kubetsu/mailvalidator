@@ -1,0 +1,5 @@
+dnspython
+rich
+typer
+aiohttp
+cryptography
