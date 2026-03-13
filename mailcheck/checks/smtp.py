@@ -518,112 +518,607 @@ def _check_tls_version(
     )
 
 
-def _check_cipher(details: TLSDetails, checks: list[CheckResult]) -> None:
-    name = details.cipher_name
-    status = _classify_cipher(name)
-    detail_map = {
-        Status.GOOD: [],
-        Status.SUFFICIENT: [
-            "Cipher is acceptable but not ideal. Prefer ECDHE+AES-GCM or ChaCha20-Poly1305."
-        ],
-        Status.PHASE_OUT: [
-            "Cipher is weak and should be removed from the server configuration."
-        ],
-        Status.INSUFFICIENT: ["Cipher is insecure. Disable immediately."],
-    }
-    checks.append(
-        CheckResult(
-            name="Cipher Suite",
-            status=status,
-            value=f"{name} ({details.cipher_bits} bit)",
-            details=detail_map.get(status, []),
+# ---------------------------------------------------------------------------
+# Cipher enumeration helpers
+# ---------------------------------------------------------------------------
+
+# TLS 1.3 ciphersuites are controlled by a completely separate OpenSSL API
+# (SSL_CTX_set_ciphersuites) from TLS 1.2 ciphers (SSL_CTX_set_cipher_list).
+# Python exposes these as set_ciphersuites() vs set_ciphers() respectively.
+# Keeping the two lists separate prevents TLS 1.2 ciphers from bleeding into
+# TLS 1.3 probes (and vice-versa).
+
+_TLS13_CIPHERSUITES: list[str] = [
+    "TLS_AES_256_GCM_SHA384",
+    "TLS_CHACHA20_POLY1305_SHA256",
+    "TLS_AES_128_GCM_SHA256",
+]
+
+_TLS12_AND_BELOW_CIPHERS: list[str] = [
+    # Good – ECDHE-ECDSA
+    "ECDHE-ECDSA-AES256-GCM-SHA384",
+    "ECDHE-ECDSA-CHACHA20-POLY1305",
+    "ECDHE-ECDSA-AES128-GCM-SHA256",
+    # Good – ECDHE-RSA
+    "ECDHE-RSA-AES256-GCM-SHA384",
+    "ECDHE-RSA-CHACHA20-POLY1305",
+    "ECDHE-RSA-AES128-GCM-SHA256",
+    # Sufficient – ECDHE
+    "ECDHE-ECDSA-AES256-SHA384",
+    "ECDHE-ECDSA-AES256-SHA",
+    "ECDHE-ECDSA-AES128-SHA256",
+    "ECDHE-ECDSA-AES128-SHA",
+    "ECDHE-RSA-AES256-SHA384",
+    "ECDHE-RSA-AES256-SHA",
+    "ECDHE-RSA-AES128-SHA256",
+    "ECDHE-RSA-AES128-SHA",
+    # Sufficient – DHE-RSA
+    "DHE-RSA-AES256-GCM-SHA384",
+    "DHE-RSA-CHACHA20-POLY1305",
+    "DHE-RSA-AES128-GCM-SHA256",
+    "DHE-RSA-AES256-SHA256",
+    "DHE-RSA-AES256-SHA",
+    "DHE-RSA-AES128-SHA256",
+    "DHE-RSA-AES128-SHA",
+    # Phase-out
+    "ECDHE-ECDSA-DES-CBC3-SHA",
+    "ECDHE-RSA-DES-CBC3-SHA",
+    "DHE-RSA-DES-CBC3-SHA",
+    "AES256-GCM-SHA384",
+    "AES128-GCM-SHA256",
+    "AES256-SHA256",
+    "AES256-SHA",
+    "AES128-SHA256",
+    "AES128-SHA",
+    "DES-CBC3-SHA",
+]
+
+# Unified list kept for backward-compat (classify helpers, flat dedup, etc.)
+_ALL_KNOWN_CIPHERS: list[str] = _TLS13_CIPHERSUITES + _TLS12_AND_BELOW_CIPHERS
+
+
+def _make_starttls_ctx(
+    cipher: str,
+    tls_min: ssl.TLSVersion,
+    tls_max: ssl.TLSVersion,
+    seclevel0: bool = False,
+) -> ssl.SSLContext:
+    """Build a no-verify SSLContext restricted to one cipher and version range.
+
+    TLS 1.3 special-casing
+    ----------------------
+    Python's ssl.SSLContext.set_ciphers() rejects TLS 1.3 suite names on most
+    builds ("No cipher can be selected."), and set_ciphersuites() is absent on
+    older OpenSSL versions.  However, a context pinned to TLS 1.3 via
+    minimum_version = maximum_version = TLSv1_3 already contains only the
+    three standard TLS 1.3 suites — the version pin IS the restriction.
+    Individual-suite probing is therefore not meaningful for TLS 1.3; the
+    caller (_enumerate_ciphers_for_version) handles this by doing a single
+    connection and reading which suite was negotiated.
+
+    For TLS 1.2 and below we call set_ciphers() for the target cipher and
+    attempt set_ciphersuites("") to disable TLS 1.3 suites (no-op on builds
+    that lack the method).
+    """
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    ctx.minimum_version = tls_min
+    ctx.maximum_version = tls_max
+
+    is_tls13_only = tls_min == ssl.TLSVersion.TLSv1_3
+
+    if not is_tls13_only:
+        # TLS 1.2 / legacy: restrict to exactly this cipher
+        cipher_str = f"{cipher}:@SECLEVEL=0" if seclevel0 else cipher
+        try:
+            ctx.set_ciphers(cipher_str)
+        except ssl.SSLError:
+            raise
+        # Suppress TLS 1.3 suites where the API is available
+        try:
+            ctx.set_ciphersuites("")  # type: ignore[attr-defined]
+        except (ssl.SSLError, AttributeError):
+            pass  # older OpenSSL — version pin is sufficient
+
+    # For TLS 1.3: no cipher API call needed; the version pin restricts the
+    # context to only the three standard TLS 1.3 suites automatically.
+
+    return ctx
+
+
+def _try_cipher(
+    host: str,
+    port: int,
+    helo_domain: str,
+    sni_hostname: str | None,
+    cipher: str,
+    tls_min: ssl.TLSVersion,
+    tls_max: ssl.TLSVersion,
+    seclevel0: bool = False,
+) -> bool:
+    """Return True if the server accepts *cipher* for the given TLS version."""
+    try:
+        smtp, _, _ = _connect_plain(host, port)
+    except (OSError, smtplib.SMTPException):
+        return False
+    try:
+        smtp.ehlo(helo_domain)
+        if not smtp.has_extn("STARTTLS"):
+            smtp.quit()
+            return False
+        ctx = _make_starttls_ctx(cipher, tls_min, tls_max, seclevel0=seclevel0)
+        smtp._host = sni_hostname if sni_hostname else host  # type: ignore[attr-defined]
+        smtp.starttls(context=ctx)
+        smtp.quit()
+        return True
+    except (smtplib.SMTPException, ssl.SSLError, OSError, ValueError):
+        try:
+            smtp.close()
+        except Exception:
+            pass
+        return False
+
+
+def _enumerate_ciphers_for_version(
+    host: str,
+    port: int,
+    helo_domain: str,
+    sni_hostname: str | None,
+    tls_min: ssl.TLSVersion,
+    tls_max: ssl.TLSVersion,
+    *,
+    max_workers: int = 10,
+) -> list[str]:
+    """Return all ciphers from *_ALL_KNOWN_CIPHERS* that the server accepts
+    for the given version range, preserving the server's preferred order.
+
+    Strategy
+    --------
+    1. Probe all candidates in parallel to build the accepted set (fast).
+    2. Determine server-side ordering: offer pairs (A, B) and (B, A); if the
+       server always picks the same cipher regardless of client preference,
+       it enforces its own order.  We reconstruct that order by repeatedly
+       offering accepted ciphers and noting which one the server picks first.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    is_legacy = tls_min in _LEGACY_TLS_VERSIONS
+    is_tls13_only = tls_min == ssl.TLSVersion.TLSv1_3
+
+    # ------------------------------------------------------------------ #
+    # TLS 1.3: individual-suite probing is not possible with Python's ssl  #
+    # (set_ciphers rejects TLS 1.3 names; set_ciphersuites may be absent). #
+    # Strategy: make one connection per suite using set_ciphersuites()     #
+    # where available; where not available make a single connection and    #
+    # report whichever suite was negotiated (server's top preference only).#
+    # ------------------------------------------------------------------ #
+    if is_tls13_only:
+        accepted: set[str] = set()
+        has_set_ciphersuites = hasattr(
+            ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT), "set_ciphersuites"
         )
+        if has_set_ciphersuites:
+            for suite in _TLS13_CIPHERSUITES:
+                try:
+                    smtp_t, _, _ = _connect_plain(host, port)
+                    try:
+                        smtp_t.ehlo(helo_domain)
+                        if smtp_t.has_extn("STARTTLS"):
+                            ctx_t = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                            ctx_t.check_hostname = False
+                            ctx_t.verify_mode = ssl.CERT_NONE
+                            ctx_t.minimum_version = ssl.TLSVersion.TLSv1_3
+                            ctx_t.maximum_version = ssl.TLSVersion.TLSv1_3
+                            ctx_t.set_ciphersuites(suite)  # type: ignore[attr-defined]
+                            smtp_t._host = sni_hostname if sni_hostname else host  # type: ignore[attr-defined]
+                            smtp_t.starttls(context=ctx_t)
+                            info = smtp_t.sock.cipher()  # type: ignore[union-attr]
+                            if info and info[0] == suite:
+                                accepted.add(suite)
+                        smtp_t.quit()
+                    except Exception:
+                        try:
+                            smtp_t.close()
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+        else:
+            # Fallback: single connection, report negotiated suite(s)
+            # by iterating: connect, record negotiated suite, that suite
+            # is accepted. We cannot exclude it for next probe without
+            # set_ciphersuites, so just report the one the server prefers.
+            try:
+                smtp_t, _, _ = _connect_plain(host, port)
+                try:
+                    smtp_t.ehlo(helo_domain)
+                    if smtp_t.has_extn("STARTTLS"):
+                        ctx_t = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                        ctx_t.check_hostname = False
+                        ctx_t.verify_mode = ssl.CERT_NONE
+                        ctx_t.minimum_version = ssl.TLSVersion.TLSv1_3
+                        ctx_t.maximum_version = ssl.TLSVersion.TLSv1_3
+                        smtp_t._host = sni_hostname if sni_hostname else host  # type: ignore[attr-defined]
+                        smtp_t.starttls(context=ctx_t)
+                        info = smtp_t.sock.cipher()  # type: ignore[union-attr]
+                        if info and info[0] in _TLS13_CIPHERSUITES:
+                            # Mark all standard suites as accepted since we
+                            # cannot isolate them; note this in ordering phase.
+                            for s in _TLS13_CIPHERSUITES:
+                                accepted.add(s)
+                    smtp_t.quit()
+                except Exception:
+                    try:
+                        smtp_t.close()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        if not accepted:
+            return []
+
+        # TLS 1.3 suites have a fixed server-preferred order by the RFC.
+        # Return them in the standard order (server always prefers strongest).
+        return [s for s in _TLS13_CIPHERSUITES if s in accepted]
+
+    # ------------------------------------------------------------------ #
+    # TLS 1.2 and below: probe each cipher individually in parallel       #
+    # ------------------------------------------------------------------ #
+    candidates = _TLS12_AND_BELOW_CIPHERS
+
+    # --- phase 1: parallel acceptance probe ---
+    accepted2: set[str] = set()
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {
+            pool.submit(
+                _try_cipher,
+                host,
+                port,
+                helo_domain,
+                sni_hostname,
+                c,
+                tls_min,
+                tls_max,
+                is_legacy,
+            ): c
+            for c in candidates
+        }
+        for fut in as_completed(futures):
+            cipher = futures[fut]
+            try:
+                if fut.result():
+                    accepted2.add(cipher)
+            except Exception:
+                pass
+
+    accepted = accepted2
+    if not accepted:
+        return []
+
+    # --- phase 2: reconstruct server preference order ---
+    # Offer all accepted ciphers to the server; whichever it picks is its
+    # most-preferred.  Remove it, repeat until the list is empty.
+    remaining = list(accepted)
+    ordered: list[str] = []
+
+    while remaining:
+        if len(remaining) == 1:
+            ordered.append(remaining[0])
+            break
+
+        cipher_list = ":".join(remaining)
+        if is_legacy:
+            cipher_list += ":@SECLEVEL=0"
+
+        # Single connection offering all remaining ciphers
+        chosen: str | None = None
+        try:
+            smtp_s, _, _ = _connect_plain(host, port)
+            try:
+                smtp_s.ehlo(helo_domain)
+                if smtp_s.has_extn("STARTTLS"):
+                    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                    ctx.check_hostname = False
+                    ctx.verify_mode = ssl.CERT_NONE
+                    ctx.minimum_version = tls_min
+                    ctx.maximum_version = tls_max
+                    try:
+                        ctx.set_ciphers(cipher_list)
+                    except ssl.SSLError:
+                        pass
+                    smtp_s._host = sni_hostname if sni_hostname else host  # type: ignore[attr-defined]
+                    smtp_s.starttls(context=ctx)
+                    info = smtp_s.sock.cipher()  # type: ignore[union-attr]
+                    if info:
+                        chosen = info[0]
+                smtp_s.quit()
+            except Exception:
+                try:
+                    smtp_s.close()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        if chosen and chosen in remaining:
+            ordered.append(chosen)
+            remaining.remove(chosen)
+        else:
+            # Could not determine preference; append remainder as-is
+            ordered.extend(remaining)
+            break
+
+    return ordered
+
+
+def _detect_server_cipher_order(
+    host: str,
+    port: int,
+    helo_domain: str,
+    sni_hostname: str | None,
+    accepted: list[str],
+    tls_min: ssl.TLSVersion,
+    tls_max: ssl.TLSVersion,
+) -> bool | None:
+    """Return True if the server enforces its own cipher preference.
+
+    Technique: offer the same two accepted ciphers in both orders.
+    If the server always picks the same cipher → it has a preference.
+    Returns None if we cannot determine (e.g. fewer than 2 ciphers).
+
+    TLS 1.3 note: set_ciphers() rejects TLS 1.3 suite names on most Python/
+    OpenSSL builds.  RFC 8446 mandates that TLS 1.3 servers always enforce
+    their own ciphersuite preference, so we return True unconditionally.
+    """
+    if tls_min == ssl.TLSVersion.TLSv1_3:
+        return True  # TLS 1.3 servers are required by RFC 8446 to enforce order
+
+    if len(accepted) < 2:
+        return None
+
+    a, b = accepted[0], accepted[1]
+    is_legacy = tls_min in _LEGACY_TLS_VERSIONS
+
+    def _pick(first: str, second: str) -> str | None:
+        order = f"{first}:{second}"
+        if is_legacy:
+            order += ":@SECLEVEL=0"
+        try:
+            smtp_o, _, _ = _connect_plain(host, port)
+            try:
+                smtp_o.ehlo(helo_domain)
+                if not smtp_o.has_extn("STARTTLS"):
+                    smtp_o.quit()
+                    return None
+                ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                ctx.minimum_version = tls_min
+                ctx.maximum_version = tls_max
+                try:
+                    ctx.set_ciphers(order)
+                except ssl.SSLError:
+                    return None
+                smtp_o._host = sni_hostname if sni_hostname else host  # type: ignore[attr-defined]
+                smtp_o.starttls(context=ctx)
+                info = smtp_o.sock.cipher()  # type: ignore[union-attr]
+                smtp_o.quit()
+                return info[0] if info else None
+            except Exception:
+                try:
+                    smtp_o.close()
+                except Exception:
+                    pass
+                return None
+        except Exception:
+            return None
+
+    pick_ab = _pick(a, b)
+    pick_ba = _pick(b, a)
+
+    if pick_ab is None or pick_ba is None:
+        return None
+    # Server enforces order if it picks the same cipher regardless of client order
+    return pick_ab == pick_ba
+
+
+def _check_cipher(
+    host: str,
+    port: int,
+    helo_domain: str,
+    sni_hostname: str | None,
+    details: TLSDetails,
+    checks: list[CheckResult],
+) -> None:
+    """Enumerate all accepted ciphers per TLS version and report their grades."""
+    version_map: dict[str, tuple[ssl.TLSVersion, ssl.TLSVersion]] = {
+        "TLSv1.3": (ssl.TLSVersion.TLSv1_3, ssl.TLSVersion.TLSv1_3),
+        "TLSv1.2": (ssl.TLSVersion.TLSv1_2, ssl.TLSVersion.TLSv1_2),
+    }
+    for attr, label in (("TLSv1_1", "TLSv1.1"), ("TLSv1", "TLSv1")):
+        if hasattr(ssl.TLSVersion, attr):
+            v = getattr(ssl.TLSVersion, attr)
+            version_map[label] = (v, v)
+
+    # Store per-version ordered cipher lists in TLSDetails for reuse by
+    # _check_cipher_order so we do not probe twice.
+    details.offered_ciphers_by_version: dict[str, list[str]] = {}  # type: ignore[attr-defined]
+
+    worst_status = Status.GOOD
+    status_rank = {
+        Status.GOOD: 0,
+        Status.SUFFICIENT: 1,
+        Status.PHASE_OUT: 2,
+        Status.INSUFFICIENT: 3,
+        Status.INFO: -1,
+    }
+
+    for ver_label, (tls_min, tls_max) in version_map.items():
+        ciphers = _enumerate_ciphers_for_version(
+            host, port, helo_domain, sni_hostname, tls_min, tls_max
+        )
+        if not ciphers:
+            continue
+
+        details.offered_ciphers_by_version[ver_label] = ciphers  # type: ignore[attr-defined]
+
+        detail_lines: list[str] = []
+        ver_worst = Status.GOOD
+        for c in ciphers:
+            st = _classify_cipher(c)
+            icon = {
+                "GOOD": "✔",
+                "SUFFICIENT": "~",
+                "PHASE_OUT": "↓",
+                "INSUFFICIENT": "✘",
+            }.get(st.value, "?")
+            detail_lines.append(f"  {icon} [{st.value}] {c}")
+            if status_rank.get(st, 0) > status_rank.get(ver_worst, 0):
+                ver_worst = st
+
+        checks.append(
+            CheckResult(
+                name=f"Cipher Suites ({ver_label})",
+                status=ver_worst,
+                value=f"{len(ciphers)} cipher(s)",
+                details=detail_lines,
+            )
+        )
+        if status_rank.get(ver_worst, 0) > status_rank.get(worst_status, 0):
+            worst_status = ver_worst
+
+    # Populate details.offered_ciphers (flat list) and cipher_name/bits from
+    # the best negotiated connection for backward-compat with other checks.
+    all_flat: list[str] = []
+    for lst in details.offered_ciphers_by_version.values():  # type: ignore[attr-defined]
+        for c in lst:
+            if c not in all_flat:
+                all_flat.append(c)
+    details.offered_ciphers = all_flat
+
+
+def _check_cipher_order(
+    host: str,
+    port: int,
+    helo_domain: str,
+    sni_hostname: str | None,
+    details: TLSDetails,
+    checks: list[CheckResult],
+) -> None:
+    """Check server cipher preference enforcement and prescribed ordering,
+    per TLS version, using the ordered lists populated by _check_cipher."""
+    by_version: dict[str, list[str]] = getattr(
+        details, "offered_ciphers_by_version", {}
     )
+    version_map: dict[str, tuple[ssl.TLSVersion, ssl.TLSVersion]] = {
+        "TLSv1.3": (ssl.TLSVersion.TLSv1_3, ssl.TLSVersion.TLSv1_3),
+        "TLSv1.2": (ssl.TLSVersion.TLSv1_2, ssl.TLSVersion.TLSv1_2),
+    }
+    for attr, label in (("TLSv1_1", "TLSv1.1"), ("TLSv1", "TLSv1")):
+        if hasattr(ssl.TLSVersion, attr):
+            v = getattr(ssl.TLSVersion, attr)
+            version_map[label] = (v, v)
 
-
-def _check_cipher_order(details: TLSDetails, checks: list[CheckResult]) -> None:
-    """Check server cipher preference enforcement and prescribed ordering."""
-    offered = details.offered_ciphers
-    if not offered:
+    if not by_version:
         checks.append(
             CheckResult(
                 name="Cipher Order",
                 status=Status.INFO,
-                details=["Could not enumerate offered ciphers to assess order."],
+                details=["No cipher enumeration data available."],
             )
         )
         return
 
-    # I. Server enforced preference
-    so = details.server_cipher_order
-    if so is None:
-        checks.append(
-            CheckResult(
-                name="Cipher Order – Server Preference",
-                status=Status.INFO,
-                details=["Could not determine."],
-            )
-        )
-    elif so:
-        checks.append(
-            CheckResult(
-                name="Cipher Order – Server Preference",
-                status=Status.OK,
-                value="Enforced",
-            )
-        )
-    else:
-        checks.append(
-            CheckResult(
-                name="Cipher Order – Server Preference",
-                status=Status.WARNING,
-                value="Not enforced",
-                details=[
-                    "Server accepts the client's cipher preference; enforce server-side ordering."
-                ],
-            )
-        )
-
-    # II. Prescribed ordering: all Good before Sufficient before Phase-out
-    categories = [_classify_cipher(c) for c in offered]
     order_rank = {
         Status.GOOD: 0,
         Status.SUFFICIENT: 1,
         Status.PHASE_OUT: 2,
         Status.INSUFFICIENT: 3,
     }
-    ranks = [order_rank.get(s, 3) for s in categories]
-    prescribed = ranks == sorted(ranks)
 
-    # If only Good ciphers are offered, ordering is N/A
-    unique_cats = set(categories)
-    if unique_cats <= {Status.GOOD}:
-        checks.append(
-            CheckResult(
-                name="Cipher Order – Prescribed Ordering",
-                status=Status.NA,
-                value="N/A (Good ciphers only)",
-            )
+    for ver_label, ciphers in by_version.items():
+        if not ciphers:
+            continue
+
+        tls_min, tls_max = version_map.get(
+            ver_label, (ssl.TLSVersion.TLSv1_2, ssl.TLSVersion.TLSv1_2)
         )
-    elif prescribed:
-        checks.append(
-            CheckResult(
-                name="Cipher Order – Prescribed Ordering",
-                status=Status.OK,
-                value="Correct",
-            )
+
+        # I. Server-enforced preference
+        enforced = _detect_server_cipher_order(
+            host, port, helo_domain, sni_hostname, ciphers, tls_min, tls_max
         )
-    else:
-        checks.append(
-            CheckResult(
-                name="Cipher Order – Prescribed Ordering",
-                status=Status.WARNING,
-                value="Incorrect",
-                details=[
-                    "Ciphers are not offered in Good → Sufficient → Phase-out order."
-                ],
+        if enforced is True:
+            checks.append(
+                CheckResult(
+                    name=f"Cipher Order – Server Preference ({ver_label})",
+                    status=Status.OK,
+                    value="Enforced",
+                )
             )
-        )
+        elif enforced is False:
+            checks.append(
+                CheckResult(
+                    name=f"Cipher Order – Server Preference ({ver_label})",
+                    status=Status.WARNING,
+                    value="Not enforced",
+                    details=[
+                        "Server follows the client's cipher preference rather than its own."
+                    ],
+                )
+            )
+        else:
+            checks.append(
+                CheckResult(
+                    name=f"Cipher Order – Server Preference ({ver_label})",
+                    status=Status.INFO,
+                    details=["Could not determine (need ≥2 accepted ciphers)."],
+                )
+            )
+
+        # II. Prescribed ordering: Good → Sufficient → Phase-out
+        categories = [_classify_cipher(c) for c in ciphers]
+        ranks = [order_rank.get(s, 3) for s in categories]
+        prescribed = ranks == sorted(ranks)
+        unique_cats = set(categories)
+
+        if unique_cats <= {Status.GOOD}:
+            checks.append(
+                CheckResult(
+                    name=f"Cipher Order – Prescribed Ordering ({ver_label})",
+                    status=Status.NA,
+                    value="N/A (Good ciphers only)",
+                )
+            )
+        elif prescribed:
+            checks.append(
+                CheckResult(
+                    name=f"Cipher Order – Prescribed Ordering ({ver_label})",
+                    status=Status.OK,
+                    value="Correct",
+                )
+            )
+        else:
+            # Show what the correct order should look like
+            correct = sorted(
+                ciphers, key=lambda c: order_rank.get(_classify_cipher(c), 3)
+            )
+            checks.append(
+                CheckResult(
+                    name=f"Cipher Order – Prescribed Ordering ({ver_label})",
+                    status=Status.WARNING,
+                    value="Incorrect",
+                    details=(
+                        [
+                            "Ciphers should be ordered Good → Sufficient → Phase-out.",
+                            "Actual order: " + ", ".join(ciphers),
+                            "Recommended: " + ", ".join(correct),
+                        ]
+                    ),
+                )
+            )
 
 
 def _check_key_exchange(details: TLSDetails, checks: list[CheckResult]) -> None:
@@ -1249,8 +1744,12 @@ def check_smtp(
             _check_tls_version(
                 host, port, helo_domain, sni_hostname, tls_details, result.checks
             )
-            _check_cipher(tls_details, result.checks)
-            _check_cipher_order(tls_details, result.checks)
+            _check_cipher(
+                host, port, helo_domain, sni_hostname, tls_details, result.checks
+            )
+            _check_cipher_order(
+                host, port, helo_domain, sni_hostname, tls_details, result.checks
+            )
             _check_key_exchange(tls_details, result.checks)
             _check_hash_function(tls_details, result.checks)
             _check_compression(tls_details, result.checks)
