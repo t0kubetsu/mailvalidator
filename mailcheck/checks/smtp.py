@@ -304,13 +304,6 @@ def _probe_tls(
     except Exception:
         details.secure_renegotiation = None
 
-    # 0-RTT: only relevant for TLS 1.3
-    if tls_ver == "TLSv1.3":
-        # Python's ssl module does not expose early-data; mark as not detectable.
-        details.zero_rtt = None  # cannot probe without C-level access
-    else:
-        details.zero_rtt = None  # N/A
-
     try:
         smtp.quit()
     except Exception:
@@ -1402,24 +1395,6 @@ def _check_renegotiation(details: TLSDetails, checks: list[CheckResult]) -> None
     )
 
 
-def _check_zero_rtt(details: TLSDetails, checks: list[CheckResult]) -> None:
-    if details.tls_version != "TLSv1.3":
-        checks.append(
-            CheckResult(name="0-RTT", status=Status.NA, value="N/A (TLS < 1.3)")
-        )
-        return
-    # Python's ssl module does not expose early-data session ticket max_early_data.
-    checks.append(
-        CheckResult(
-            name="0-RTT",
-            status=Status.INFO,
-            details=[
-                "Python ssl does not expose early-data ticket size. Use an external tool (e.g. testssl.sh) to probe 0-RTT."
-            ],
-        )
-    )
-
-
 def _check_certificate(
     details: TLSDetails, checks: list[CheckResult], host: str
 ) -> None:
@@ -2015,7 +1990,6 @@ def check_smtp(
             _check_hash_function(tls_details, result.checks)
             _check_compression(tls_details, result.checks)
             _check_renegotiation(tls_details, result.checks)
-            _check_zero_rtt(tls_details, result.checks)
             _check_certificate(tls_details, result.checks, host)
 
     # --- CAA records ---

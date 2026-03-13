@@ -65,7 +65,6 @@ class TLSDetails:
     caa_records: list[str] = field(default_factory=list)
     compression: str = ""  # "" = none, "zlib", etc.
     secure_renegotiation: bool | None = None
-    zero_rtt: bool | None = None  # None = N/A (non-TLS 1.3)
     dh_group: str = ""  # ECDHE curve or FFDHE group name
     dh_bits: int = 0
     server_cipher_order: bool | None = None
