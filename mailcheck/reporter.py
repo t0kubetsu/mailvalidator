@@ -81,7 +81,7 @@ def print_smtp(results: list[SMTPDiagResult]) -> None:
 def print_dkim(result: DKIMResult) -> None:
     console.print(
         Panel(
-            f"[bold]DKIM[/bold] – {result.selector}._domainkey.{result.domain}",
+            f"[bold]DKIM[/bold] – _domainkey.{result.domain}",
             style="blue",
         )
     )

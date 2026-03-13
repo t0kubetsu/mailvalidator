@@ -30,7 +30,6 @@ def _resolve_mx_ips(records: list[MXRecord]) -> list[str]:
 def assess(
     domain: str,
     *,
-    dkim_selector: str = "default",
     bimi_selector: str = "default",
     smtp_port: int = 25,
     run_blacklist: bool = True,
@@ -43,8 +42,6 @@ def assess(
     ----------
     domain:
         Target domain name.
-    dkim_selector:
-        DKIM selector to query (default ``"default"``).
     bimi_selector:
         BIMI selector to query (default ``"default"``).
     smtp_port:
@@ -76,8 +73,8 @@ def assess(
     report.dmarc = check_dmarc(domain)
 
     # --- DKIM ---
-    _cb(f"Checking DKIM record (selector: {dkim_selector})…")
-    report.dkim = check_dkim(domain, selector=dkim_selector)
+    _cb("Checking DKIM base node…")
+    report.dkim = check_dkim(domain)
 
     # --- BIMI ---
     _cb(f"Checking BIMI record (selector: {bimi_selector})…")

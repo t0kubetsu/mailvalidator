@@ -87,8 +87,6 @@ class SMTPDiagResult:
 @dataclass
 class DKIMResult:
     domain: str
-    selector: str
-    record: str = ""
     checks: list[CheckResult] = field(default_factory=list)
 
 

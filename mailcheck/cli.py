@@ -67,9 +67,6 @@ def _main(
 @app.command("check")
 def cmd_check(
     domain: Annotated[str, typer.Argument(help="Domain name to assess.")],
-    dkim_selector: Annotated[
-        str, typer.Option("--dkim-selector", "-s", help="DKIM selector.")
-    ] = "default",
     bimi_selector: Annotated[
         str, typer.Option("--bimi-selector", help="BIMI selector.")
     ] = "default",
@@ -99,7 +96,6 @@ def cmd_check(
 
         report = assess(
             domain,
-            dkim_selector=dkim_selector,
             bimi_selector=bimi_selector,
             smtp_port=smtp_port,
             run_smtp=not no_smtp,
@@ -141,12 +137,9 @@ def cmd_dmarc(domain: Annotated[str, typer.Argument()]) -> None:
 
 
 @app.command("dkim")
-def cmd_dkim(
-    domain: Annotated[str, typer.Argument()],
-    selector: Annotated[str, typer.Option("--selector", "-s")] = "default",
-) -> None:
-    """Look up and validate the DKIM record for DOMAIN with SELECTOR."""
-    print_dkim(check_dkim(domain, selector=selector))
+def cmd_dkim(domain: Annotated[str, typer.Argument()]) -> None:
+    """Check whether DOMAIN has a conformant DKIM base node (_domainkey.DOMAIN)."""
+    print_dkim(check_dkim(domain))
 
 
 @app.command("bimi")
