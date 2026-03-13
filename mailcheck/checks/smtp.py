@@ -76,61 +76,6 @@ _PHASE_OUT_CIPHERS: frozenset[str] = frozenset(
 # Key-exchange parameter classification
 # ---------------------------------------------------------------------------
 
-_GOOD_EC_CURVES: frozenset[str] = frozenset(
-    {"secp384r1", "secp256r1", "x448", "x25519", "prime256v1"}
-)
-_PHASE_OUT_EC_CURVES: frozenset[str] = frozenset({"secp224r1"})
-
-# SHA-256 checksums of the DH group prime (ffdhe groups from RFC 7919).
-_SUFFICIENT_FFDHE: dict[str, str] = {
-    "ffdhe4096": "64852d6890ff9e62eecd1ee89c72af9af244dfef5b853bcedea3dfd7aade22b3",
-    "ffdhe3072": "c410cc9c4fd85d2c109f7ebe5930ca5304a52927c0ebcb1a11c5cf6b2386bbab",
-    "ffdhe8192": "",  # noted – limited gain
-    "ffdhe6144": "",  # noted – limited gain
-}
-_PHASE_OUT_FFDHE: dict[str, str] = {
-    "ffdhe2048": "9ba6429597aeed2d8617a7705b56e96d044f64b07971659382e426675105654b",
-}
-
-# Ordered list used to validate cipher preference ordering
-_PRESCRIBED_ORDER: list[str] = (
-    sorted(_GOOD_CIPHERS) + sorted(_SUFFICIENT_CIPHERS) + sorted(_PHASE_OUT_CIPHERS)
-)
-
-
-# ---------------------------------------------------------------------------
-# Low-level helpers
-# ---------------------------------------------------------------------------
-
-
-def _connect_plain(host: str, port: int) -> tuple[smtplib.SMTP, float, str]:
-    """Plain SMTP connect; returns (smtp, elapsed_ms, banner)."""
-    t0 = time.monotonic()
-    smtp = smtplib.SMTP(timeout=_TIMEOUT)
-    _code, msg = smtp.connect(host, port)
-    elapsed = (time.monotonic() - t0) * 1000
-    banner = msg.decode(errors="replace") if isinstance(msg, bytes) else str(msg)
-    return smtp, elapsed, banner
-
-
-def _starttls_context(verify: bool = True) -> ssl.SSLContext:
-    ctx = ssl.create_default_context()
-    if not verify:
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-    return ctx
-
-
-def _tls_version_status(version: str) -> Status:
-    if version == "TLSv1.3":
-        return Status.OK
-    if version == "TLSv1.2":
-        return Status.SUFFICIENT
-    if version in ("TLSv1.1", "TLSv1"):
-        return Status.PHASE_OUT
-    # SSLv3, SSLv2, unknown
-    return Status.INSUFFICIENT
-
 
 def _classify_cipher(name: str) -> Status:
     if name in _GOOD_CIPHERS:
@@ -142,10 +87,12 @@ def _classify_cipher(name: str) -> Status:
     return Status.INSUFFICIENT
 
 
-def _classify_ec_curve(curve: str) -> Status:
-    if curve in _GOOD_EC_CURVES:
-        return Status.GOOD
-    if curve in _PHASE_OUT_EC_CURVES:
+def _tls_version_status(version: str) -> Status:
+    if version == "TLSv1.3":
+        return Status.OK
+    if version == "TLSv1.2":
+        return Status.SUFFICIENT
+    if version in ("TLSv1.1", "TLSv1"):
         return Status.PHASE_OUT
     return Status.INSUFFICIENT
 
@@ -204,6 +151,24 @@ def _cert_info(der: bytes) -> dict:
 # ---------------------------------------------------------------------------
 # TLS probe: performs STARTTLS and deep-inspects the session
 # ---------------------------------------------------------------------------
+
+
+def _connect_plain(host: str, port: int) -> tuple[smtplib.SMTP, float, str]:
+    """Plain SMTP connect; returns (smtp, elapsed_ms, banner)."""
+    t0 = time.monotonic()
+    smtp = smtplib.SMTP(timeout=_TIMEOUT)
+    _code, msg = smtp.connect(host, port)
+    elapsed = (time.monotonic() - t0) * 1000
+    banner = msg.decode(errors="replace") if isinstance(msg, bytes) else str(msg)
+    return smtp, elapsed, banner
+
+
+def _starttls_context(verify: bool = True) -> ssl.SSLContext:
+    ctx = ssl.create_default_context()
+    if not verify:
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+    return ctx
 
 
 def _is_ip(host: str) -> bool:
@@ -315,9 +280,11 @@ def _probe_tls(
                     with verify_ctx.wrap_socket(raw, server_hostname=sni_hostname):
                         pass
                 details.cert_trusted = True
-            except ssl.SSLCertVerificationError:
+            except ssl.SSLCertVerificationError as e:
+                print("1", e)
                 details.cert_trusted = False
-            except OSError:
+            except OSError as e:
+                print("2", e)
                 details.cert_trusted = False
         else:
             # Cannot verify trust for IP-addressed hosts via SNI.
@@ -328,15 +295,9 @@ def _probe_tls(
         details.secure_renegotiation = (
             raw_sock.get_channel_binding("tls-unique") is not None
         )
-    except Exception:
+    except Exception as e:
+        print("3", e)
         details.secure_renegotiation = None
-
-    # 0-RTT: only relevant for TLS 1.3
-    if tls_ver == "TLSv1.3":
-        # Python's ssl module does not expose early-data; mark as not detectable.
-        details.zero_rtt = None  # cannot probe without C-level access
-    else:
-        details.zero_rtt = None  # N/A
 
     try:
         smtp.quit()
@@ -1121,56 +1082,166 @@ def _check_cipher_order(
             )
 
 
-def _check_key_exchange(details: TLSDetails, checks: list[CheckResult]) -> None:
-    cipher = details.cipher_name
-    group = details.dh_group
+# RFC 7919 ffdhe group fingerprints (SHA-256 of the DER-encoded group params)
+_FFDHE_GROUPS: dict[str, tuple[Status, str]] = {
+    # Sufficient
+    "64852d6890ff9e62eecd1ee89c72af9af244dfef5b853bcedea3dfd7aade22b3": (
+        Status.SUFFICIENT,
+        "ffdhe4096",
+    ),
+    "c410cc9c4fd85d2c109f7ebe5930ca5304a52927c0ebcb1a11c5cf6b2386bbab": (
+        Status.SUFFICIENT,
+        "ffdhe3072",
+    ),
+    # Phase-out
+    "9ba6429597aeed2d8617a7705b56e96d044f64b07971659382e426675105654b": (
+        Status.PHASE_OUT,
+        "ffdhe2048",
+    ),
+}
 
-    if "ECDHE" in cipher or "ECDH" in cipher:
-        curve = group or details.cert_pubkey_curve
-        status = _classify_ec_curve(curve)
-        details_msg: list[str] = []
-        if status == Status.PHASE_OUT:
-            details_msg = [
-                f"Curve {curve} is deprecated; migrate to secp256r1 or secp384r1."
+# Good EC curves for ECDHE key exchange (NCSC-NL TLS v2.1 B5-1 / table 9)
+_GOOD_EC_CURVES: frozenset[str] = frozenset(
+    {
+        "secp256r1",
+        "prime256v1",  # same curve, two names
+        "secp384r1",
+        "x448",
+        "x25519",
+    }
+)
+_PHASE_OUT_EC_CURVES: frozenset[str] = frozenset({"secp224r1"})
+
+
+def _classify_ec_curve_kex(curve: str) -> Status:
+    c = curve.lower()
+    if c in _GOOD_EC_CURVES:
+        return Status.GOOD
+    if c in _PHASE_OUT_EC_CURVES:
+        return Status.PHASE_OUT
+    if c:
+        return Status.INSUFFICIENT
+    return Status.INFO  # unknown
+
+
+# Public alias kept for backward-compat (tests + external callers)
+_classify_ec_curve = _classify_ec_curve_kex
+
+
+def _check_key_exchange(details: TLSDetails, checks: list[CheckResult]) -> None:
+    """Assess the key exchange mechanism used in the negotiated TLS session.
+
+    TLS 1.3 always uses ephemeral ECDHE (mandated by RFC 8446).  Python's ssl
+    module does not expose the negotiated group name via a public API on most
+    builds, so for TLS 1.3 we report x25519 (the default and overwhelmingly
+    most common group) as GOOD with an informational note.
+
+    For TLS 1.2 we derive the mechanism from the cipher name:
+      - ECDHE-* → EC key exchange; try to read the curve from _sslobj.group()
+      - DHE-*   → finite-field DH; assess by key bit-length
+      - other   → RSA key exchange (phase-out for key exchange purposes)
+    """
+    tls_ver = details.tls_version
+    cipher = details.cipher_name
+
+    # ── TLS 1.3 ──────────────────────────────────────────────────────────────
+    # RFC 8446 §4.2.7: ephemeral ECDHE is mandatory; x25519 is the default
+    # group in virtually all implementations.  Python ssl does not expose the
+    # negotiated NamedGroup, so we report what we know from the protocol spec.
+    if tls_ver == "TLSv1.3":
+        # Try to read the group via the internal _sslobj.group() if available
+        # (present on some CPython + OpenSSL builds).
+        group = details.dh_group or ""
+        if group:
+            st = _classify_ec_curve_kex(group)
+            msg = []
+            if st == Status.PHASE_OUT:
+                msg = [f"Curve {group} is deprecated; prefer x25519 or secp256r1."]
+            elif st == Status.INSUFFICIENT:
+                msg = [f"Curve {group} is not recommended for key exchange."]
+            checks.append(
+                CheckResult(
+                    name="Key Exchange – EC Curve",
+                    status=st,
+                    value=f"ECDHE ({group})",
+                    details=msg,
+                )
+            )
+        else:
+            # group() not available; TLS 1.3 mandates ECDHE so this is Good.
+            checks.append(
+                CheckResult(
+                    name="Key Exchange – EC Curve",
+                    status=Status.GOOD,
+                    value="ECDHE (TLS 1.3 – x25519 or negotiated curve)",
+                    details=[
+                        "TLS 1.3 mandates ephemeral ECDHE (RFC 8446). "
+                        "Exact curve not exposed by Python ssl on this build."
+                    ],
+                )
+            )
+        return
+
+    # ── TLS 1.2 / legacy: derive mechanism from cipher name ──────────────────
+    if "ECDHE" in cipher:
+        group = details.dh_group or ""
+        # Fallback: the cert pubkey curve is NOT the kex curve, but it's the
+        # only hint we have when _sslobj.group() is absent.
+        curve = group  # do not fall back to cert curve — different thing
+        st = _classify_ec_curve_kex(curve)
+        msg: list[str] = []
+        if st == Status.PHASE_OUT:
+            msg = [f"Curve {curve} is deprecated; migrate to secp256r1 or secp384r1."]
+        elif st == Status.INSUFFICIENT:
+            msg = [f"Curve {curve} is not considered secure for key exchange."]
+        elif st == Status.INFO:
+            msg = [
+                "EC curve name not exposed by Python ssl on this build. "
+                "Use testssl.sh to verify the negotiated curve."
             ]
-        elif status == Status.INSUFFICIENT:
-            details_msg = [f"Curve {curve} is not considered secure for key exchange."]
         checks.append(
             CheckResult(
                 name="Key Exchange – EC Curve",
-                status=status,
-                value=curve or "(unknown)",
+                status=st,
+                value=f"ECDHE ({curve})" if curve else "ECDHE (curve unknown)",
+                details=msg,
             )
         )
 
     elif "DHE" in cipher:
-        # Finite-field DH group assessment by bit size (group name often not
-        # exposed by Python ssl; use key bits as a proxy).
-        bits = details.dh_bits
+        bits = details.dh_bits or 0
         if bits >= 4096:
-            st, note = Status.SUFFICIENT, "ffdhe4096 or larger"
+            st2, note = Status.SUFFICIENT, "ffdhe4096 or larger – Good."
         elif bits >= 3072:
-            st, note = Status.SUFFICIENT, "ffdhe3072 or larger"
+            st2, note = Status.SUFFICIENT, "ffdhe3072 – Good."
         elif bits >= 2048:
-            st, note = Status.PHASE_OUT, "ffdhe2048 – phase out; upgrade to ≥3072 bit."
+            st2, note = Status.PHASE_OUT, "ffdhe2048 – phase out; upgrade to ≥3072 bit."
+        elif bits > 0:
+            st2, note = Status.INSUFFICIENT, f"{bits}-bit DH group is insecure."
         else:
-            st, note = Status.INSUFFICIENT, f"{bits}-bit DH is insecure."
+            st2, note = (
+                Status.INFO,
+                "DH group size not exposed by Python ssl on this build.",
+            )
         checks.append(
             CheckResult(
                 name="Key Exchange – DH Group",
-                status=st,
-                value=f"{bits} bit",
-                details=[note] if st != Status.SUFFICIENT else [],
+                status=st2,
+                value=f"{bits} bit" if bits else "unknown",
+                details=[note] if st2 != Status.SUFFICIENT else [],
             )
         )
+
     else:
+        # RSA key exchange (no forward secrecy) – phase-out per NCSC-NL B5-1
         checks.append(
             CheckResult(
                 name="Key Exchange",
-                status=Status.INFO,
-                value=cipher,
+                status=Status.PHASE_OUT,
+                value=f"RSA ({cipher})",
                 details=[
-                    "No DHE/ECDHE detected; forward secrecy may not be available."
+                    "RSA key exchange provides no forward secrecy. "
+                    "Migrate to ECDHE or DHE ciphers."
                 ],
             )
         )
@@ -1314,24 +1385,6 @@ def _check_renegotiation(details: TLSDetails, checks: list[CheckResult]) -> None
             status=Status.INFO,
             details=[
                 "Active probe not performed. Verify server-side configuration manually."
-            ],
-        )
-    )
-
-
-def _check_zero_rtt(details: TLSDetails, checks: list[CheckResult]) -> None:
-    if details.tls_version != "TLSv1.3":
-        checks.append(
-            CheckResult(name="0-RTT", status=Status.NA, value="N/A (TLS < 1.3)")
-        )
-        return
-    # Python's ssl module does not expose early-data session ticket max_early_data.
-    checks.append(
-        CheckResult(
-            name="0-RTT",
-            status=Status.INFO,
-            details=[
-                "Python ssl does not expose early-data ticket size. Use an external tool (e.g. testssl.sh) to probe 0-RTT."
             ],
         )
     )
@@ -1754,7 +1807,6 @@ def check_smtp(
             _check_hash_function(tls_details, result.checks)
             _check_compression(tls_details, result.checks)
             _check_renegotiation(tls_details, result.checks)
-            _check_zero_rtt(tls_details, result.checks)
             _check_certificate(tls_details, result.checks, host)
 
     # --- CAA records ---
