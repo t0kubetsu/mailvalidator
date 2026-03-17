@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import ipaddress
 from typing import Annotated, Optional
 
 import typer
+from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from mailcheck import __version__
 from mailcheck.assessor import assess
@@ -29,7 +31,6 @@ from mailcheck.reporter import (
     print_spf,
     print_tlsrpt,
 )
-from rich.progress import Progress, SpinnerColumn, TextColumn
 
 app = typer.Typer(
     name="mailcheck",
@@ -42,6 +43,15 @@ def _version_callback(value: bool) -> None:
     if value:
         typer.echo(f"mailcheck {__version__}")
         raise typer.Exit()
+
+
+def _validate_ip(value: str) -> str:
+    """Ensure the input is a valid IPv4 or IPv6 address."""
+    try:
+        ipaddress.ip_address(value)
+        return value
+    except ValueError:
+        raise typer.BadParameter(f"'{value}' is not a valid IP address")
 
 
 @app.callback()
@@ -160,7 +170,9 @@ def cmd_mta_sts(domain: Annotated[str, typer.Argument()]) -> None:
 
 @app.command("blacklist")
 def cmd_blacklist(
-    ip: Annotated[str, typer.Argument(help="IP address to check.")],
+    ip: Annotated[
+        str, typer.Argument(help="IP address to check.", callback=_validate_ip)
+    ],
     workers: Annotated[
         int, typer.Option("--workers", "-w", help="Parallel DNS workers.")
     ] = 50,
