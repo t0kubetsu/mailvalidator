@@ -139,8 +139,8 @@ def _check_single(ip: str, zone: str) -> tuple[str, bool]:
         return zone, False
     query = f"{reversed_ip}.{zone}"
     try:
-        socket.gethostbyname(query)
-        return zone, True
+        resolved_ip = socket.gethostbyname(query)
+        return zone, resolved_ip == "127.0.0.2"
     except socket.gaierror:
         return zone, False
 
