@@ -8,9 +8,9 @@ from mailcheck.dns_utils import resolve
 from mailcheck.models import BIMIResult, CheckResult, Status
 
 
-def check_bimi(domain: str, selector: str = "default") -> BIMIResult:
-    result = BIMIResult(domain=domain, selector=selector)
-    bimi_name = f"{selector}._bimi.{domain}"
+def check_bimi(domain: str) -> BIMIResult:
+    result = BIMIResult(domain=domain)
+    bimi_name = f"default._bimi.{domain}"
 
     records = resolve(bimi_name, "TXT")
     bimi_records = [r.strip('"') for r in records if "v=BIMI1" in r]

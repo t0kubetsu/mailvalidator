@@ -94,7 +94,6 @@ class DKIMResult:
 class BIMIResult:
     domain: str
     record: str = ""
-    selector: str = "default"
     checks: list[CheckResult] = field(default_factory=list)
 
 

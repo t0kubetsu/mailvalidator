@@ -6,7 +6,7 @@ from typing import Annotated, Optional
 
 import typer
 
-# from . import __version__
+from mailcheck import __version__
 from mailcheck.assessor import assess
 from mailcheck.checks.bimi import check_bimi
 from mailcheck.checks.blacklist import check_blacklist
@@ -31,7 +31,6 @@ from mailcheck.reporter import (
 )
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-__version__ = "0.0.1"
 app = typer.Typer(
     name="mailcheck",
     help="Assess mail server configuration: MX, SPF, DKIM, DMARC, BIMI, TLSRPT, MTA-STS, blacklists and more.",
@@ -67,9 +66,6 @@ def _main(
 @app.command("check")
 def cmd_check(
     domain: Annotated[str, typer.Argument(help="Domain name to assess.")],
-    bimi_selector: Annotated[
-        str, typer.Option("--bimi-selector", help="BIMI selector.")
-    ] = "default",
     smtp_port: Annotated[int, typer.Option("--smtp-port", help="SMTP port.")] = 25,
     no_smtp: Annotated[
         bool, typer.Option("--no-smtp", help="Skip SMTP diagnostics.")
@@ -96,7 +92,6 @@ def cmd_check(
 
         report = assess(
             domain,
-            bimi_selector=bimi_selector,
             smtp_port=smtp_port,
             run_smtp=not no_smtp,
             run_blacklist=not no_blacklist,

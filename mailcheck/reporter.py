@@ -90,9 +90,7 @@ def print_dkim(result: DKIMResult) -> None:
 
 def print_bimi(result: BIMIResult) -> None:
     console.print(
-        Panel(
-            f"[bold]BIMI[/bold] – {result.selector}._bimi.{result.domain}", style="blue"
-        )
+        Panel(f"[bold]BIMI[/bold] – default._bimi.{result.domain}", style="blue")
     )
     console.print(_checks_table(result.checks))
 

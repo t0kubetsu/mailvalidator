@@ -30,7 +30,6 @@ def _resolve_mx_ips(records: list[MXRecord]) -> list[str]:
 def assess(
     domain: str,
     *,
-    bimi_selector: str = "default",
     smtp_port: int = 25,
     run_blacklist: bool = True,
     run_smtp: bool = True,
@@ -77,8 +76,8 @@ def assess(
     report.dkim = check_dkim(domain)
 
     # --- BIMI ---
-    _cb(f"Checking BIMI record (selector: {bimi_selector})…")
-    report.bimi = check_bimi(domain, selector=bimi_selector)
+    _cb("Checking BIMI record (selector: default)…")
+    report.bimi = check_bimi(domain)
 
     # --- TLSRPT ---
     _cb("Checking TLSRPT record…")
