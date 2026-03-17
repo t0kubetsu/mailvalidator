@@ -1,13 +1,35 @@
-"""Unit tests for mailcheck – uses mocking so no live DNS needed."""
+"""Unit tests for mailcheck – uses mocking so no live DNS or SMTP needed.
+
+Running the tests
+-----------------
+Install the project in editable mode and run pytest::
+
+    pip install -e ".[dev]"
+    pytest tests/
+
+For a coverage report::
+
+    pytest tests/ --cov=mailcheck --cov-report=term-missing
+
+To run a single test class or test::
+
+    pytest tests/ -k TestSPF
+    pytest tests/ -k "TestSPF and test_softfail_all_ok"
+
+Verbose output with short traceback::
+
+    pytest tests/ -v --tb=short
+"""
 
 from __future__ import annotations
 
 import ssl
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from mailcheck.checks.bimi import check_bimi
+from mailcheck.checks.blacklist import check_blacklist, _check_single, _reverse_ip
 from mailcheck.checks.dkim import check_dkim
 from mailcheck.checks.dmarc import check_dmarc
 from mailcheck.checks.mta_sts import check_mta_sts
@@ -336,25 +358,20 @@ class TestDMARC:
 
 
 class TestDKIM:
-    def test_valid_record(self):
-        record = '"v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA"'
-        with patch("mailcheck.checks.dkim.resolve", return_value=[record]):
-            result = check_dkim("example.com", selector="google")
+    def test_base_node_ok(self):
+        """An empty list (NOERROR, no records) means the base node exists correctly."""
+        with patch("mailcheck.checks.dkim.resolve", return_value=[]):
+            result = check_dkim("example.com")
         assert any(
-            c.status == Status.OK and "Public Key" in c.name for c in result.checks
+            c.name == "DKIM Base Node" and c.status == Status.OK for c in result.checks
         )
 
-    def test_not_found(self):
-        with patch("mailcheck.checks.dkim.resolve", return_value=[]):
-            result = check_dkim("example.com", selector="missing")
-        assert any(c.status == Status.NOT_FOUND for c in result.checks)
-
-    def test_revoked_key(self):
-        record = '"v=DKIM1; k=rsa; p="'
-        with patch("mailcheck.checks.dkim.resolve", return_value=[record]):
-            result = check_dkim("example.com", selector="revoked")
+    def test_base_node_nxdomain(self):
+        """None return value from resolve() signals NXDOMAIN → ERROR."""
+        with patch("mailcheck.checks.dkim.resolve", return_value=None):
+            result = check_dkim("example.com")
         assert any(
-            c.status in (Status.ERROR, Status.WARNING) and "Public Key" in c.name
+            c.name == "DKIM Base Node" and c.status == Status.ERROR
             for c in result.checks
         )
 
@@ -414,6 +431,150 @@ class TestMTASTS:
         with patch("mailcheck.checks.mta_sts.resolve", return_value=[]):
             result = check_mta_sts("example.com")
         assert any(c.status == Status.NOT_FOUND for c in result.checks)
+
+
+# ── Blacklist ─────────────────────────────────────────────────────────────────
+
+
+class TestBlacklist:
+    """Tests for the DNS blacklist check and its helpers.
+
+    The key behavioural contract: only ``127.0.0.2`` is treated as a positive
+    listing.  Other values in ``127.0.0.0/8`` (used by reputation/allowlist
+    zones) must not be counted as hits.
+    """
+
+    # ── _reverse_ip ───────────────────────────────────────────────────────────
+
+    def test_reverse_ipv4(self):
+        """IPv4 octets should be reversed for the DNSBL query prefix."""
+        assert _reverse_ip("1.2.3.4") == "4.3.2.1"
+
+    def test_reverse_ipv4_loopback(self):
+        assert _reverse_ip("127.0.0.1") == "1.0.0.127"
+
+    def test_reverse_ipv6(self):
+        """IPv6 should be expanded and nibble-reversed per RFC 5782."""
+        result = _reverse_ip("2001:db8::1")
+        # Expanded: 20010db8000000000000000000000001 → reversed nibbles
+        assert result.endswith(".1.0.0.2")  # last nibble of 2001 comes first
+
+    def test_reverse_invalid_returns_empty(self):
+        assert _reverse_ip("not-an-ip") == ""
+
+    # ── _check_single: 127.0.0.2 logic ───────────────────────────────────────
+
+    def test_listed_returns_true_for_127_0_0_2(self):
+        """A response of 127.0.0.2 must be treated as a positive listing."""
+        with patch(
+            "mailcheck.checks.blacklist.socket.gethostbyname", return_value="127.0.0.2"
+        ):
+            zone, listed = _check_single("1.2.3.4", "zen.spamhaus.org")
+        assert listed is True
+        assert zone == "zen.spamhaus.org"
+
+    def test_not_listed_for_127_255_255_255(self):
+        """127.255.255.255 (used by bondedsender.org) must NOT count as listed."""
+        with patch(
+            "mailcheck.checks.blacklist.socket.gethostbyname",
+            return_value="127.255.255.255",
+        ):
+            zone, listed = _check_single("1.1.1.1", "query.bondedsender.org")
+        assert listed is False
+
+    def test_not_listed_for_127_0_0_3(self):
+        """Other 127.0.0.x sub-codes (reason flags) must not count as listed."""
+        with patch(
+            "mailcheck.checks.blacklist.socket.gethostbyname", return_value="127.0.0.3"
+        ):
+            _, listed = _check_single("1.2.3.4", "some.dnsbl.example")
+        assert listed is False
+
+    def test_not_listed_on_nxdomain(self):
+        """NXDOMAIN (socket.gaierror) must be treated as not listed."""
+        import socket as _socket
+
+        with patch(
+            "mailcheck.checks.blacklist.socket.gethostbyname",
+            side_effect=_socket.gaierror("NXDOMAIN"),
+        ):
+            _, listed = _check_single("1.2.3.4", "zen.spamhaus.org")
+        assert listed is False
+
+    def test_invalid_ip_returns_not_listed(self):
+        """An invalid IP that cannot be reversed must not be counted as listed."""
+        _, listed = _check_single("not-an-ip", "zen.spamhaus.org")
+        assert listed is False
+
+    # ── check_blacklist ───────────────────────────────────────────────────────
+
+    def test_clean_ip_produces_ok_result(self):
+        """An IP not listed on any zone should produce a single OK CheckResult."""
+        import socket as _socket
+
+        with patch(
+            "mailcheck.checks.blacklist.socket.gethostbyname",
+            side_effect=_socket.gaierror("NXDOMAIN"),
+        ):
+            result = check_blacklist(
+                "1.2.3.4", zones=["zen.spamhaus.org", "bl.spamcop.net"]
+            )
+        assert result.listed_on == []
+        assert any(c.status == Status.OK for c in result.checks)
+
+    def test_listed_ip_produces_error_result(self):
+        """An IP listed on at least one zone should produce an ERROR CheckResult."""
+        import socket as _socket
+
+        def _fake_gethostbyname(query: str) -> str:
+            if "zen.spamhaus.org" in query:
+                return "127.0.0.2"
+            raise _socket.gaierror("NXDOMAIN")
+
+        with patch(
+            "mailcheck.checks.blacklist.socket.gethostbyname",
+            side_effect=_fake_gethostbyname,
+        ):
+            result = check_blacklist(
+                "1.2.3.4", zones=["zen.spamhaus.org", "bl.spamcop.net"]
+            )
+
+        assert "zen.spamhaus.org" in result.listed_on
+        assert "bl.spamcop.net" not in result.listed_on
+        assert any(c.status == Status.ERROR for c in result.checks)
+
+    def test_duplicate_zones_are_deduplicated(self):
+        """Duplicate zone entries must be queried only once."""
+        import socket as _socket
+
+        call_count = 0
+
+        def _counting_resolve(query: str) -> str:
+            nonlocal call_count
+            call_count += 1
+            raise _socket.gaierror("NXDOMAIN")
+
+        with patch(
+            "mailcheck.checks.blacklist.socket.gethostbyname",
+            side_effect=_counting_resolve,
+        ):
+            check_blacklist("1.2.3.4", zones=["zen.spamhaus.org", "zen.spamhaus.org"])
+
+        assert call_count == 1, f"Expected 1 query, got {call_count}"
+
+    def test_total_checked_matches_unique_zones(self):
+        """total_checked must reflect deduplicated zone count."""
+        import socket as _socket
+
+        with patch(
+            "mailcheck.checks.blacklist.socket.gethostbyname",
+            side_effect=_socket.gaierror("NXDOMAIN"),
+        ):
+            result = check_blacklist(
+                "1.2.3.4",
+                zones=["a.example", "b.example", "a.example"],  # 3 entries, 2 unique
+            )
+        assert result.total_checked == 2
 
 
 # ── SMTP TLS checks ───────────────────────────────────────────────────────────
