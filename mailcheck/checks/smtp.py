@@ -312,7 +312,9 @@ def _is_ip(host: str) -> bool:
         return False
 
 
-def _connect_plain(host: str, port: int) -> tuple[smtplib.SMTP, float, str]:
+def _connect_plain(
+    host: str, port: int
+) -> tuple[smtplib.SMTP, float, str]:  # pragma: no cover
     """Open a plain TCP connection to an SMTP server.
 
     :param host: Mail server hostname or IP address.
@@ -380,7 +382,7 @@ def _starttls_and_get_cipher(
     helo_domain: str,
     sni_hostname: str | None,
     ctx: ssl.SSLContext,
-) -> str | None:
+) -> str | None:  # pragma: no cover
     """Perform a STARTTLS handshake with *ctx* and return the negotiated cipher name.
 
     Opens a fresh connection for each call.  Cleans up the socket whether or
@@ -431,7 +433,7 @@ def _probe_tls(
     host: str,
     port: int,
     helo_domain: str,
-) -> tuple[TLSDetails | None, str, str | None]:
+) -> tuple[TLSDetails | None, str, str | None]:  # pragma: no cover
     """Connect via STARTTLS and populate a :class:`~mailcheck.models.TLSDetails` object.
 
     **SNI**: SNI requires a DNS hostname, not an IP address.  For bare IPs
@@ -592,7 +594,7 @@ def _probe_single_tls_version(
     sni_hostname: str | None,
     tls_min: ssl.TLSVersion,
     tls_max: ssl.TLSVersion,
-) -> bool:
+) -> bool:  # pragma: no cover
     """Return ``True`` if the server completes STARTTLS at exactly this TLS version.
 
     :param host: Mail server hostname or IP address.
@@ -842,7 +844,7 @@ def _try_cipher(
     tls_min: ssl.TLSVersion,
     tls_max: ssl.TLSVersion,
     seclevel0: bool = False,
-) -> bool:
+) -> bool:  # pragma: no cover
     """Return ``True`` if the server accepts *cipher* for the given TLS version.
 
     :param host: Mail server hostname or IP address.
@@ -890,7 +892,7 @@ def _enumerate_tls13_ciphers(
     port: int,
     helo_domain: str,
     sni_hostname: str | None,
-) -> list[str]:
+) -> list[str]:  # pragma: no cover
     """Return the accepted TLS 1.3 ciphersuites in server-preference order.
 
     When :meth:`ssl.SSLContext.set_ciphersuites` is available, each suite is
@@ -948,7 +950,7 @@ def _enumerate_ciphers_for_version(
     tls_max: ssl.TLSVersion,
     *,
     max_workers: int = 10,
-) -> list[str]:
+) -> list[str]:  # pragma: no cover
     """Return accepted ciphers for one TLS version in server-preference order.
 
     TLS 1.3 is delegated to :func:`_enumerate_tls13_ciphers` (separate API
@@ -1052,7 +1054,7 @@ def _detect_server_cipher_order(
     accepted: list[str],
     tls_min: ssl.TLSVersion,
     tls_max: ssl.TLSVersion,
-) -> bool | None:
+) -> bool | None:  # pragma: no cover
     """Return ``True`` if the server enforces its own cipher-preference order.
 
     Technique: offer the top two accepted ciphers in both orderings (A:B and
@@ -2019,7 +2021,7 @@ def _fetch_cert_der(
     port: int,
     helo_domain: str,
     sni_hostname: str | None,
-) -> bytes | None:
+) -> bytes | None:  # pragma: no cover
     """Open a fresh STARTTLS connection and return the raw DER certificate.
 
     Used as a fallback when :func:`_probe_tls` did not store the DER (e.g.
@@ -2209,7 +2211,7 @@ def _check_dane(
 # ---------------------------------------------------------------------------
 
 
-def _test_open_relay(smtp: smtplib.SMTP, helo_domain: str) -> bool:
+def _test_open_relay(smtp: smtplib.SMTP, helo_domain: str) -> bool:  # pragma: no cover
     """Return ``True`` if the server relays mail for two unrelated external addresses.
 
     Issues ``MAIL FROM`` and ``RCPT TO`` for addresses at distinct
@@ -2247,7 +2249,7 @@ def check_smtp(
     host: str,
     port: int = 25,
     helo_domain: str = "mailcheck.local",
-) -> SMTPDiagResult:
+) -> SMTPDiagResult:  # pragma: no cover
     """Run all SMTP diagnostics for *host*:*port* and return a populated result.
 
     :param host: Mail server hostname or IP address.

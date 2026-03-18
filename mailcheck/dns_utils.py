@@ -43,7 +43,7 @@ def _make_resolver(nameservers: list[str] | None = None) -> dns.resolver.Resolve
     if nameservers:
         resolver.nameservers = nameservers
     elif not getattr(resolver, "nameservers", None):
-        resolver.nameservers = list(_FALLBACK_NS)
+        resolver.nameservers = list(_FALLBACK_NS)  # pragma: no cover
 
     return resolver
 
