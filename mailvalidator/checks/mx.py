@@ -9,8 +9,8 @@ when the authoritative servers cannot be reached.
 from __future__ import annotations
 
 
-from mailcheck.dns_utils import get_authoritative_ns, resolve, resolve_a
-from mailcheck.models import CheckResult, MXRecord, MXResult, Status
+from mailvalidator.dns_utils import get_authoritative_ns, resolve, resolve_a
+from mailvalidator.models import CheckResult, MXRecord, MXResult, Status
 
 
 def check_mx(domain: str) -> MXResult:

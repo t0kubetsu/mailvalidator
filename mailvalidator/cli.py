@@ -1,4 +1,4 @@
-"""mailcheck CLI – mail server configuration assessment.
+"""mailvalidator CLI – mail server configuration assessment.
 
 Sub-commands
 ------------
@@ -15,9 +15,9 @@ blacklist   Check an IP address against 100+ DNS blacklists.
 
 Usage example::
 
-    mailcheck check example.com
-    mailcheck smtp mx1.example.com --port 587
-    mailcheck blacklist 203.0.113.42
+    mailvalidator check example.com
+    mailvalidator smtp mx1.example.com --port 587
+    mailvalidator blacklist 203.0.113.42
 """
 
 from __future__ import annotations
@@ -29,18 +29,18 @@ from typing import Annotated, Optional
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from mailcheck import __version__
-from mailcheck.assessor import assess
-from mailcheck.checks.bimi import check_bimi
-from mailcheck.checks.blacklist import check_blacklist
-from mailcheck.checks.dkim import check_dkim
-from mailcheck.checks.dmarc import check_dmarc
-from mailcheck.checks.mta_sts import check_mta_sts
-from mailcheck.checks.mx import check_mx
-from mailcheck.checks.smtp import check_smtp
-from mailcheck.checks.spf import check_spf
-from mailcheck.checks.tlsrpt import check_tlsrpt
-from mailcheck.reporter import (
+from mailvalidator import __version__
+from mailvalidator.assessor import assess
+from mailvalidator.checks.bimi import check_bimi
+from mailvalidator.checks.blacklist import check_blacklist
+from mailvalidator.checks.dkim import check_dkim
+from mailvalidator.checks.dmarc import check_dmarc
+from mailvalidator.checks.mta_sts import check_mta_sts
+from mailvalidator.checks.mx import check_mx
+from mailvalidator.checks.smtp import check_smtp
+from mailvalidator.checks.spf import check_spf
+from mailvalidator.checks.tlsrpt import check_tlsrpt
+from mailvalidator.reporter import (
     print_bimi,
     print_blacklist,
     print_dkim,
@@ -58,7 +58,7 @@ from mailcheck.reporter import (
 # ---------------------------------------------------------------------------
 
 app = typer.Typer(
-    name="mailcheck",
+    name="mailvalidator",
     help="Assess mail server configuration: MX, SPF, DKIM, DMARC, BIMI, TLSRPT, MTA-STS, blacklists and more.",
     add_completion=False,
 )
@@ -144,7 +144,7 @@ def _validate_ip(value: str) -> str:
 
 def _version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"mailcheck {__version__}")
+        typer.echo(f"mailvalidator {__version__}")
         raise typer.Exit()
 
 
@@ -161,7 +161,7 @@ def _main(
         ),
     ] = None,
 ) -> None:
-    """mailcheck – Mail server configuration assessment."""
+    """mailvalidator – Mail server configuration assessment."""
 
 
 # ---------------------------------------------------------------------------

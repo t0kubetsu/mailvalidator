@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import re
 
-from mailcheck.dns_utils import resolve
-from mailcheck.models import CheckResult, Status, TLSRPTResult
+from mailvalidator.dns_utils import resolve
+from mailvalidator.models import CheckResult, Status, TLSRPTResult
 
 
 def check_tlsrpt(domain: str) -> TLSRPTResult:
@@ -19,7 +19,7 @@ def check_tlsrpt(domain: str) -> TLSRPTResult:
     :param domain: The domain whose TLSRPT record should be validated.
     :type domain: str
     :returns: Result containing the raw record and
-        :class:`~mailcheck.models.CheckResult` items for the version tag
+        :class:`~mailvalidator.models.CheckResult` items for the version tag
         and each reporting URI in the ``rua=`` tag.
     :rtype: TLSRPTResult
     """
@@ -69,7 +69,7 @@ def _parse_tags(record: str) -> dict[str, str]:
 
 
 def _validate(tags: dict[str, str], result: TLSRPTResult) -> None:
-    """Validate TLSRPT tag values and append :class:`~mailcheck.models.CheckResult` items to *result*.
+    """Validate TLSRPT tag values and append :class:`~mailvalidator.models.CheckResult` items to *result*.
 
     :param tags: Parsed TLSRPT tag dictionary from :func:`_parse_tags`.
     :type tags: dict[str, str]

@@ -1,17 +1,17 @@
-"""Tests for mailcheck/checks/bimi.py."""
+"""Tests for mailvalidator/checks/bimi.py."""
 
 from __future__ import annotations
 
 from unittest.mock import patch
 
-from mailcheck.checks.bimi import check_bimi
-from mailcheck.models import Status
+from mailvalidator.checks.bimi import check_bimi
+from mailvalidator.models import Status
 
 
 class TestBIMI:
     def test_valid_record(self):
         with patch(
-            "mailcheck.checks.bimi.resolve",
+            "mailvalidator.checks.bimi.resolve",
             return_value=['"v=BIMI1; l=https://example.com/logo.svg"'],
         ):
             result = check_bimi("example.com")
@@ -19,7 +19,7 @@ class TestBIMI:
 
     def test_http_logo_error(self):
         with patch(
-            "mailcheck.checks.bimi.resolve",
+            "mailvalidator.checks.bimi.resolve",
             return_value=['"v=BIMI1; l=http://example.com/logo.svg"'],
         ):
             result = check_bimi("example.com")
@@ -28,21 +28,21 @@ class TestBIMI:
 
 class TestBIMIExtra:
     def test_not_found(self):
-        with patch("mailcheck.checks.bimi.resolve", return_value=[]):
+        with patch("mailvalidator.checks.bimi.resolve", return_value=[]):
             result = check_bimi("example.com")
         assert any(c.status == Status.NOT_FOUND for c in result.checks)
 
     def test_unknown_version_not_found(self):
         with patch(
-            "mailcheck.checks.bimi.resolve",
+            "mailvalidator.checks.bimi.resolve",
             return_value=['"v=BIMI2; l=https://example.com/logo.svg"'],
         ):
             result = check_bimi("example.com")
         assert any(c.status == Status.NOT_FOUND for c in result.checks)
 
     def test_bad_version_via_internal_validator(self):
-        from mailcheck.checks.bimi import _validate
-        from mailcheck.models import BIMIResult
+        from mailvalidator.checks.bimi import _validate
+        from mailvalidator.models import BIMIResult
 
         result = BIMIResult(domain="example.com")
         _validate({"v": "BIMI2", "l": "https://example.com/logo.svg"}, result)
@@ -51,7 +51,7 @@ class TestBIMIExtra:
         )
 
     def test_missing_logo_url_warns(self):
-        with patch("mailcheck.checks.bimi.resolve", return_value=['"v=BIMI1"']):
+        with patch("mailvalidator.checks.bimi.resolve", return_value=['"v=BIMI1"']):
             result = check_bimi("example.com")
         assert any(
             c.name == "Logo URL (l=)" and c.status == Status.WARNING
@@ -60,7 +60,7 @@ class TestBIMIExtra:
 
     def test_non_svg_logo_warns(self):
         with patch(
-            "mailcheck.checks.bimi.resolve",
+            "mailvalidator.checks.bimi.resolve",
             return_value=['"v=BIMI1; l=https://example.com/logo.png"'],
         ):
             result = check_bimi("example.com")
@@ -71,7 +71,7 @@ class TestBIMIExtra:
 
     def test_svg_gz_logo_ok(self):
         with patch(
-            "mailcheck.checks.bimi.resolve",
+            "mailvalidator.checks.bimi.resolve",
             return_value=['"v=BIMI1; l=https://example.com/logo.svg.gz"'],
         ):
             result = check_bimi("example.com")
@@ -81,7 +81,7 @@ class TestBIMIExtra:
 
     def test_authority_evidence_present(self):
         with patch(
-            "mailcheck.checks.bimi.resolve",
+            "mailvalidator.checks.bimi.resolve",
             return_value=[
                 '"v=BIMI1; l=https://example.com/logo.svg; a=https://example.com/cert.pem"'
             ],
@@ -93,7 +93,7 @@ class TestBIMIExtra:
 
     def test_authority_evidence_missing_info(self):
         with patch(
-            "mailcheck.checks.bimi.resolve",
+            "mailvalidator.checks.bimi.resolve",
             return_value=['"v=BIMI1; l=https://example.com/logo.svg"'],
         ):
             result = check_bimi("example.com")

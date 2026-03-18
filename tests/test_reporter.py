@@ -1,12 +1,12 @@
-"""Tests for mailcheck/reporter.py."""
+"""Tests for mailvalidator/reporter.py."""
 
 from __future__ import annotations
 
 from unittest.mock import patch
 
 
-import mailcheck.reporter as _reporter_module
-from mailcheck.models import (
+import mailvalidator.reporter as _reporter_module
+from mailvalidator.models import (
     BIMIResult,
     BlacklistResult,
     CheckResult,
@@ -21,7 +21,7 @@ from mailcheck.models import (
     Status,
     TLSRPTResult,
 )
-from mailcheck.reporter import (
+from mailvalidator.reporter import (
     _checks_table,
     _status_text,
     print_bimi,

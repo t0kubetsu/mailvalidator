@@ -1,23 +1,23 @@
-"""Tests for mailcheck/checks/dkim.py."""
+"""Tests for mailvalidator/checks/dkim.py."""
 
 from __future__ import annotations
 
 from unittest.mock import patch
 
-from mailcheck.checks.dkim import check_dkim
-from mailcheck.models import Status
+from mailvalidator.checks.dkim import check_dkim
+from mailvalidator.models import Status
 
 
 class TestDKIM:
     def test_base_node_ok(self):
-        with patch("mailcheck.checks.dkim.resolve", return_value=[]):
+        with patch("mailvalidator.checks.dkim.resolve", return_value=[]):
             result = check_dkim("example.com")
         assert any(
             c.name == "DKIM Base Node" and c.status == Status.OK for c in result.checks
         )
 
     def test_base_node_nxdomain(self):
-        with patch("mailcheck.checks.dkim.resolve", return_value=None):
+        with patch("mailvalidator.checks.dkim.resolve", return_value=None):
             result = check_dkim("example.com")
         assert any(
             c.name == "DKIM Base Node" and c.status == Status.ERROR

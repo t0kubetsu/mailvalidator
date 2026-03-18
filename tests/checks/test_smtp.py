@@ -1,4 +1,4 @@
-"""Tests for mailcheck/checks/smtp.py – pure-logic checks only.
+"""Tests for mailvalidator/checks/smtp.py – pure-logic checks only.
 
 Network I/O functions (_probe_tls, check_smtp, etc.) require a live SMTP
 server and are covered by integration tests only.
@@ -14,7 +14,7 @@ import smtplib
 
 import pytest
 
-from mailcheck.checks.smtp import (
+from mailvalidator.checks.smtp import (
     _cert_info,
     _check_caa,
     _check_certificate,
@@ -36,7 +36,7 @@ from mailcheck.checks.smtp import (
     _tls_version_status,
     _verify_tlsa_record,
 )
-from mailcheck.models import Status
+from mailvalidator.models import Status
 from tests.conftest import make_tls
 
 
@@ -64,7 +64,7 @@ class TestTLSVersion:
         checks: list = []
         # TLS 1.3 accepted, TLS 1.2 rejected → best negotiated 1.3, overall GOOD
         with patch(
-            "mailcheck.checks.smtp._probe_single_tls_version",
+            "mailvalidator.checks.smtp._probe_single_tls_version",
             side_effect=lambda h, p, helo, sni, tls_min, tls_max: (
                 tls_min == ssl.TLSVersion.TLSv1_3
             ),
@@ -72,7 +72,7 @@ class TestTLSVersion:
             _check_tls_version(
                 "mail.example.com",
                 25,
-                "mailcheck.local",
+                "mailvalidator.local",
                 "mail.example.com",
                 make_tls(tls_version="TLSv1.3"),
                 checks,
@@ -93,13 +93,13 @@ class TestTLSVersion:
             pytest.skip("TLSv1_1 not available on this OpenSSL build")
 
         with patch(
-            "mailcheck.checks.smtp._probe_single_tls_version",
+            "mailvalidator.checks.smtp._probe_single_tls_version",
             side_effect=_accept_tls11_only,
         ):
             _check_tls_version(
                 "mail.example.com",
                 25,
-                "mailcheck.local",
+                "mailvalidator.local",
                 "mail.example.com",
                 make_tls(tls_version="TLSv1.1"),
                 checks,
@@ -129,7 +129,7 @@ class TestCipherClassification:
         tls = make_tls()
         # Simulate enumeration returning ciphers for TLS 1.3 only
         with patch(
-            "mailcheck.checks.smtp._enumerate_ciphers_for_version",
+            "mailvalidator.checks.smtp._enumerate_ciphers_for_version",
             side_effect=lambda h, p, helo, sni, mn, mx, **kw: (
                 ["TLS_AES_256_GCM_SHA384"] if mn == ssl.TLSVersion.TLSv1_3 else []
             ),
@@ -137,7 +137,7 @@ class TestCipherClassification:
             _check_cipher(
                 "mail.example.com",
                 25,
-                "mailcheck.local",
+                "mailvalidator.local",
                 "mail.example.com",
                 tls,
                 checks,
@@ -163,12 +163,12 @@ class TestCipherOrder:
             {"TLSv1.3": ["TLS_AES_256_GCM_SHA384", "TLS_AES_128_GCM_SHA256"]}
         )
         with patch(
-            "mailcheck.checks.smtp._detect_server_cipher_order", return_value=True
+            "mailvalidator.checks.smtp._detect_server_cipher_order", return_value=True
         ):
             _check_cipher_order(
                 "mail.example.com",
                 25,
-                "mailcheck.local",
+                "mailvalidator.local",
                 "mail.example.com",
                 tls,
                 checks,
@@ -187,12 +187,12 @@ class TestCipherOrder:
             }
         )
         with patch(
-            "mailcheck.checks.smtp._detect_server_cipher_order", return_value=True
+            "mailvalidator.checks.smtp._detect_server_cipher_order", return_value=True
         ):
             _check_cipher_order(
                 "mail.example.com",
                 25,
-                "mailcheck.local",
+                "mailvalidator.local",
                 "mail.example.com",
                 tls,
                 checks,
@@ -205,12 +205,12 @@ class TestCipherOrder:
         # Phase-out before Good is wrong order
         tls = self._tls({"TLSv1.2": ["AES256-SHA", "ECDHE-RSA-AES256-GCM-SHA384"]})
         with patch(
-            "mailcheck.checks.smtp._detect_server_cipher_order", return_value=True
+            "mailvalidator.checks.smtp._detect_server_cipher_order", return_value=True
         ):
             _check_cipher_order(
                 "mail.example.com",
                 25,
-                "mailcheck.local",
+                "mailvalidator.local",
                 "mail.example.com",
                 tls,
                 checks,
@@ -364,11 +364,11 @@ class TestDANE:
 
     def test_check_dane_no_records(self):
         checks: list = []
-        with patch("mailcheck.checks.smtp.resolve", return_value=[]):
+        with patch("mailvalidator.checks.smtp.resolve", return_value=[]):
             _check_dane(
                 "mail.example.com",
                 25,
-                "mailcheck.local",
+                "mailvalidator.local",
                 "mail.example.com",
                 None,
                 checks,
@@ -383,11 +383,11 @@ class TestDANE:
         fp = hashlib.sha256(der).hexdigest()
         record = f"3 0 1 {fp}"
         checks: list = []
-        with patch("mailcheck.checks.smtp.resolve", return_value=[record]):
+        with patch("mailvalidator.checks.smtp.resolve", return_value=[record]):
             _check_dane(
                 "mail.example.com",
                 25,
-                "mailcheck.local",
+                "mailvalidator.local",
                 "mail.example.com",
                 der,
                 checks,
@@ -399,11 +399,11 @@ class TestDANE:
         der = self._make_self_signed_der()
         record = "3 0 1 " + "ab" * 32  # wrong fingerprint
         checks: list = []
-        with patch("mailcheck.checks.smtp.resolve", return_value=[record]):
+        with patch("mailvalidator.checks.smtp.resolve", return_value=[record]):
             _check_dane(
                 "mail.example.com",
                 25,
-                "mailcheck.local",
+                "mailvalidator.local",
                 "mail.example.com",
                 der,
                 checks,
@@ -421,12 +421,12 @@ class TestDANE:
         next_record = "3 0 1 " + "cc" * 32  # pre-published for next cert
         checks: list = []
         with patch(
-            "mailcheck.checks.smtp.resolve", return_value=[current_record, next_record]
+            "mailvalidator.checks.smtp.resolve", return_value=[current_record, next_record]
         ):
             _check_dane(
                 "mail.example.com",
                 25,
-                "mailcheck.local",
+                "mailvalidator.local",
                 "mail.example.com",
                 der,
                 checks,
@@ -439,13 +439,13 @@ class TestDANE:
         """PKIX-TA(0) and PKIX-EE(1) records should warn, not count as valid."""
         checks: list = []
         with patch(
-            "mailcheck.checks.smtp.resolve",
+            "mailvalidator.checks.smtp.resolve",
             return_value=["0 0 1 " + "aa" * 32, "1 0 1 " + "bb" * 32],
         ):
             _check_dane(
                 "mail.example.com",
                 25,
-                "mailcheck.local",
+                "mailvalidator.local",
                 "mail.example.com",
                 None,
                 checks,
@@ -663,16 +663,16 @@ class TestCheckTlsVersionExtra:
         """An accepted version classified INSUFFICIENT → overall INSUFFICIENT."""
         checks: list = []
         with patch(
-            "mailcheck.checks.smtp._probe_single_tls_version", return_value=True
+            "mailvalidator.checks.smtp._probe_single_tls_version", return_value=True
         ):
             with patch(
-                "mailcheck.checks.smtp._tls_version_status",
+                "mailvalidator.checks.smtp._tls_version_status",
                 return_value=Status.INSUFFICIENT,
             ):
                 _check_tls_version(
                     "mail.example.com",
                     25,
-                    "mailcheck.local",
+                    "mailvalidator.local",
                     None,
                     make_tls(tls_version="SSLv3"),
                     checks,
@@ -683,13 +683,13 @@ class TestCheckTlsVersionExtra:
         """Only TLS 1.2 accepted (SUFFICIENT) and no GOOD → SUFFICIENT overall."""
         checks: list = []
         with patch(
-            "mailcheck.checks.smtp._probe_single_tls_version",
+            "mailvalidator.checks.smtp._probe_single_tls_version",
             side_effect=lambda h, p, helo, sni, mn, mx: mn == ssl.TLSVersion.TLSv1_2,
         ):
             _check_tls_version(
                 "mail.example.com",
                 25,
-                "mailcheck.local",
+                "mailvalidator.local",
                 None,
                 make_tls(tls_version="TLSv1.2"),
                 checks,
@@ -700,12 +700,12 @@ class TestCheckTlsVersionExtra:
         """All probes failing (server unreachable) → INFO status."""
         checks: list = []
         with patch(
-            "mailcheck.checks.smtp._probe_single_tls_version", return_value=False
+            "mailvalidator.checks.smtp._probe_single_tls_version", return_value=False
         ):
             _check_tls_version(
                 "mail.example.com",
                 25,
-                "mailcheck.local",
+                "mailvalidator.local",
                 None,
                 make_tls(tls_version=""),
                 checks,
@@ -723,12 +723,12 @@ class TestCheckCipherExtra:
         tls = make_tls()
         mixed = ["ECDHE-RSA-AES256-GCM-SHA384", "AES256-SHA"]  # Good + Phase-out
         with patch(
-            "mailcheck.checks.smtp._enumerate_ciphers_for_version",
+            "mailvalidator.checks.smtp._enumerate_ciphers_for_version",
             side_effect=lambda h, p, helo, sni, mn, mx, **kw: (
                 mixed if mn == ssl.TLSVersion.TLSv1_2 else []
             ),
         ):
-            _check_cipher("mail.example.com", 25, "mailcheck.local", None, tls, checks)
+            _check_cipher("mail.example.com", 25, "mailvalidator.local", None, tls, checks)
         cipher_check = next(c for c in checks if "TLSv1.2" in c.name)
         assert cipher_check.status == Status.PHASE_OUT
 
@@ -743,7 +743,7 @@ class TestCheckCipherOrderExtra:
         tls = make_tls()
         tls.offered_ciphers_by_version = {}
         _check_cipher_order(
-            "mail.example.com", 25, "mailcheck.local", None, tls, checks
+            "mail.example.com", 25, "mailvalidator.local", None, tls, checks
         )
         assert len(checks) == 1
         assert checks[0].status == Status.INFO
@@ -756,10 +756,10 @@ class TestCheckCipherOrderExtra:
             "TLSv1.2": ["ECDHE-RSA-AES256-GCM-SHA384", "DHE-RSA-AES256-SHA256"]
         }
         with patch(
-            "mailcheck.checks.smtp._detect_server_cipher_order", return_value=False
+            "mailvalidator.checks.smtp._detect_server_cipher_order", return_value=False
         ):
             _check_cipher_order(
-                "mail.example.com", 25, "mailcheck.local", None, tls, checks
+                "mail.example.com", 25, "mailvalidator.local", None, tls, checks
             )
         pref = next(c for c in checks if "Server Preference" in c.name)
         assert pref.status == Status.WARNING
@@ -770,10 +770,10 @@ class TestCheckCipherOrderExtra:
         tls = make_tls()
         tls.offered_ciphers_by_version = {"TLSv1.2": ["ECDHE-RSA-AES256-GCM-SHA384"]}
         with patch(
-            "mailcheck.checks.smtp._detect_server_cipher_order", return_value=None
+            "mailvalidator.checks.smtp._detect_server_cipher_order", return_value=None
         ):
             _check_cipher_order(
-                "mail.example.com", 25, "mailcheck.local", None, tls, checks
+                "mail.example.com", 25, "mailvalidator.local", None, tls, checks
             )
         pref = next(c for c in checks if "Server Preference" in c.name)
         assert pref.status == Status.INFO
@@ -1160,14 +1160,14 @@ class TestCheckCertificateExtra:
 class TestCheckCaaExtra:
     def test_no_caa_records_warns(self):
         checks: list = []
-        with patch("mailcheck.checks.smtp.resolve", return_value=[]):
+        with patch("mailvalidator.checks.smtp.resolve", return_value=[]):
             _check_caa("mail.example.com", checks)
         assert checks[0].status == Status.WARNING
 
     def test_valid_caa_ok(self):
         checks: list = []
         with patch(
-            "mailcheck.checks.smtp.resolve", return_value=['0 issue "letsencrypt.org"']
+            "mailvalidator.checks.smtp.resolve", return_value=['0 issue "letsencrypt.org"']
         ):
             _check_caa("mail.example.com", checks)
         assert checks[0].status == Status.OK
@@ -1183,7 +1183,7 @@ class TestCheckCaaExtra:
                 return ['0 issue "letsencrypt.org"']
             return []
 
-        with patch("mailcheck.checks.smtp.resolve", side_effect=_fake_resolve):
+        with patch("mailvalidator.checks.smtp.resolve", side_effect=_fake_resolve):
             _check_caa("mail.example.com", checks)
         assert "example.com" in call_args
         assert checks[0].status == Status.OK
@@ -1191,7 +1191,7 @@ class TestCheckCaaExtra:
     def test_missing_issue_tag_warns(self):
         checks: list = []
         with patch(
-            "mailcheck.checks.smtp.resolve",
+            "mailvalidator.checks.smtp.resolve",
             return_value=['0 iodef "mailto:ca@example.com"'],
         ):
             _check_caa("mail.example.com", checks)
@@ -1201,7 +1201,7 @@ class TestCheckCaaExtra:
     def test_http_iodef_warns(self):
         checks: list = []
         with patch(
-            "mailcheck.checks.smtp.resolve",
+            "mailvalidator.checks.smtp.resolve",
             return_value=[
                 '0 issue "letsencrypt.org"',
                 '0 iodef "http://example.com/caa"',
@@ -1214,7 +1214,7 @@ class TestCheckCaaExtra:
     def test_malformed_record_warns(self):
         checks: list = []
         with patch(
-            "mailcheck.checks.smtp.resolve",
+            "mailvalidator.checks.smtp.resolve",
             return_value=['0 issue "letsencrypt.org"', "badrecord"],
         ):
             _check_caa("mail.example.com", checks)
@@ -1338,11 +1338,11 @@ class TestCheckDaneExtra:
         """No cert DER + _fetch_cert_der returning None → WARNING."""
         checks: list = []
         with patch(
-            "mailcheck.checks.smtp.resolve", return_value=["3 0 1 " + "aa" * 32]
+            "mailvalidator.checks.smtp.resolve", return_value=["3 0 1 " + "aa" * 32]
         ):
-            with patch("mailcheck.checks.smtp._fetch_cert_der", return_value=None):
+            with patch("mailvalidator.checks.smtp._fetch_cert_der", return_value=None):
                 _check_dane(
-                    "mail.example.com", 25, "mailcheck.local", None, None, checks
+                    "mail.example.com", 25, "mailvalidator.local", None, None, checks
                 )
         match = next(c for c in checks if "Match" in c.name)
         assert match.status == Status.WARNING
@@ -1357,8 +1357,8 @@ class TestCheckDaneExtra:
         record1 = f"2 0 1 {fp}"
         record2 = "2 0 1 " + "cc" * 32  # non-matching DANE-TA
         checks: list = []
-        with patch("mailcheck.checks.smtp.resolve", return_value=[record1, record2]):
-            _check_dane("mail.example.com", 25, "mailcheck.local", None, der, checks)
+        with patch("mailvalidator.checks.smtp.resolve", return_value=[record1, record2]):
+            _check_dane("mail.example.com", 25, "mailvalidator.local", None, der, checks)
         rollover = next(c for c in checks if "Rollover" in c.name)
         # Two DANE-TA records without DANE-EE → non-standard
         assert rollover.status == Status.WARNING
@@ -1446,8 +1446,8 @@ class TestCheckDaneEeEeRollover:
         record1 = f"3 0 1 {fp}"  # DANE-EE matching current cert
         record2 = "3 0 1 " + "dd" * 32  # DANE-EE pre-published for next cert
         checks: list = []
-        with patch("mailcheck.checks.smtp.resolve", return_value=[record1, record2]):
-            _check_dane("mail.example.com", 25, "mailcheck.local", None, der, checks)
+        with patch("mailvalidator.checks.smtp.resolve", return_value=[record1, record2]):
+            _check_dane("mail.example.com", 25, "mailvalidator.local", None, der, checks)
         rollover = next(c for c in checks if "Rollover" in c.name)
         assert rollover.status == Status.OK
         assert "EE + DANE-EE" in rollover.details[0]
@@ -1487,9 +1487,9 @@ class TestCheckDaneEeTaRollover:
         ta_record = "2 0 1 " + "aa" * 32  # DANE-TA (issuer CA anchor)
         checks: list = []
         with patch(
-            "mailcheck.checks.smtp.resolve", return_value=[ee_record, ta_record]
+            "mailvalidator.checks.smtp.resolve", return_value=[ee_record, ta_record]
         ):
-            _check_dane("mail.example.com", 25, "mailcheck.local", None, der, checks)
+            _check_dane("mail.example.com", 25, "mailvalidator.local", None, der, checks)
         rollover = next(c for c in checks if "Rollover" in c.name)
         assert rollover.status == Status.OK
         assert "EE + DANE-TA" in rollover.details[0]

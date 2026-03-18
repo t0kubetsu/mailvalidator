@@ -1,4 +1,4 @@
-# mailcheck
+# mailvalidator
 
 > Mail server configuration assessment CLI utility and Python module.
 
@@ -6,16 +6,16 @@
 
 | Check | Command | Description |
 |---|---|---|
-| MX Records | `mailcheck mx` | Lists MX records via authoritative NS |
-| SMTP Diagnostics | `mailcheck smtp` | Banner, PTR, open relay test, STARTTLS, response time |
-| SPF | `mailcheck spf` | SPF record lookup + validation |
-| DMARC | `mailcheck dmarc` | DMARC record lookup + policy validation |
-| DKIM | `mailcheck dkim` | DKIM record lookup + key validation |
-| BIMI | `mailcheck bimi` | BIMI record lookup + logo/VMC checks |
-| TLSRPT | `mailcheck tlsrpt` | SMTP TLS Reporting record check |
-| MTA-STS | `mailcheck mta-sts` | MTA-STS DNS record + policy file validation |
-| Blacklist / Blocklist | `mailcheck blacklist` | Check IP against 100+ DNSBLs |
-| **Full Report** | `mailcheck check` | Runs all checks in one go |
+| MX Records | `mailvalidator mx` | Lists MX records via authoritative NS |
+| SMTP Diagnostics | `mailvalidator smtp` | Banner, PTR, open relay test, STARTTLS, response time |
+| SPF | `mailvalidator spf` | SPF record lookup + validation |
+| DMARC | `mailvalidator dmarc` | DMARC record lookup + policy validation |
+| DKIM | `mailvalidator dkim` | DKIM record lookup + key validation |
+| BIMI | `mailvalidator bimi` | BIMI record lookup + logo/VMC checks |
+| TLSRPT | `mailvalidator tlsrpt` | SMTP TLS Reporting record check |
+| MTA-STS | `mailvalidator mta-sts` | MTA-STS DNS record + policy file validation |
+| Blacklist / Blocklist | `mailvalidator blacklist` | Check IP against 100+ DNSBLs |
+| **Full Report** | `mailvalidator check` | Runs all checks in one go |
 
 ## Requirements
 
@@ -32,21 +32,21 @@ pip install -e .
 
 ```bash
 # Full report
-mailcheck check example.com
+mailvalidator check example.com
 
 # Full report – skip SMTP & blacklist (faster, no outbound TCP 25)
-mailcheck check example.com --no-smtp --no-blacklist
+mailvalidator check example.com --no-smtp --no-blacklist
 
 # Individual checks
-mailcheck mx      example.com
-mailcheck smtp    mail.example.com --port 25
-mailcheck spf     example.com
-mailcheck dmarc   example.com
-mailcheck dkim    example.com --selector google
-mailcheck bimi    example.com
-mailcheck tlsrpt  example.com
-mailcheck mta-sts example.com
-mailcheck blacklist 1.2.3.4
+mailvalidator mx      example.com
+mailvalidator smtp    mail.example.com --port 25
+mailvalidator spf     example.com
+mailvalidator dmarc   example.com
+mailvalidator dkim    example.com --selector google
+mailvalidator bimi    example.com
+mailvalidator tlsrpt  example.com
+mailvalidator mta-sts example.com
+mailvalidator blacklist 1.2.3.4
 ```
 
 ## Python API
@@ -69,8 +69,8 @@ dmarc = check_dmarc("example.com")
 ## Project Structure
 
 ```
-mailcheck/
-├── mailcheck/
+mailvalidator/
+├── mailvalidator/
 │   ├── __init__.py
 │   ├── models.py        # Dataclass result models
 │   ├── dns_utils.py     # DNS helper functions

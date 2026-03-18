@@ -1,4 +1,4 @@
-"""Shared fixtures and helpers used across all mailcheck test modules.
+"""Shared fixtures and helpers used across all mailvalidator test modules.
 
 Import this module's helpers directly in test files::
 
@@ -13,7 +13,7 @@ from __future__ import annotations
 import datetime as _dt
 
 
-from mailcheck.models import (
+from mailvalidator.models import (
     MXRecord,
     MXResult,
     TLSDetails,
@@ -26,11 +26,11 @@ from mailcheck.models import (
 
 
 def make_tls(**kwargs) -> TLSDetails:
-    """Return a :class:`~mailcheck.models.TLSDetails` pre-filled with sensible
+    """Return a :class:`~mailvalidator.models.TLSDetails` pre-filled with sensible
     defaults, overridden by any *kwargs*.
 
     :returns: Populated TLSDetails instance.
-    :rtype: ~mailcheck.models.TLSDetails
+    :rtype: ~mailvalidator.models.TLSDetails
     """
     defaults = dict(
         tls_version="TLSv1.3",
@@ -129,10 +129,10 @@ def make_ec_cert_der(cn: str = "ec.example.com", days: int = 90) -> bytes:
 
 
 def make_mx_result(records: list[MXRecord] | None = None) -> MXResult:
-    """Return an :class:`~mailcheck.models.MXResult` with empty checks.
+    """Return an :class:`~mailvalidator.models.MXResult` with empty checks.
 
     :param records: Optional list of MX records.  Defaults to ``[]``.
-    :rtype: ~mailcheck.models.MXResult
+    :rtype: ~mailvalidator.models.MXResult
     """
     r = MXResult(domain="example.com")
     r.checks = []

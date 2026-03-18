@@ -31,7 +31,7 @@ Design notes
 Each TLS probe opens a fresh SMTP connection so that version and cipher
 constraints are applied cleanly.  The ``_probe_tls`` function runs once to
 collect session metadata; all subsequent check functions read from the
-:class:`~mailcheck.models.TLSDetails` object it returns rather than
+:class:`~mailvalidator.models.TLSDetails` object it returns rather than
 reconnecting.  Only :func:`_check_dane` may open an additional connection
 when the initial probe did not store the DER certificate (rare fallback).
 """
@@ -47,8 +47,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
-from mailcheck.dns_utils import resolve, reverse_lookup
-from mailcheck.models import CheckResult, SMTPDiagResult, Status, TLSDetails
+from mailvalidator.dns_utils import resolve, reverse_lookup
+from mailvalidator.models import CheckResult, SMTPDiagResult, Status, TLSDetails
 
 # ---------------------------------------------------------------------------
 # Module-level constants
@@ -128,11 +128,11 @@ def _classify_cipher(name: str) -> Status:
 
     :param name: OpenSSL cipher suite name (e.g. ``"ECDHE-RSA-AES256-GCM-SHA384"``).
     :type name: str
-    :returns: :attr:`~mailcheck.models.Status.GOOD`,
-        :attr:`~mailcheck.models.Status.SUFFICIENT`,
-        :attr:`~mailcheck.models.Status.PHASE_OUT`, or
-        :attr:`~mailcheck.models.Status.INSUFFICIENT`.
-    :rtype: ~mailcheck.models.Status
+    :returns: :attr:`~mailvalidator.models.Status.GOOD`,
+        :attr:`~mailvalidator.models.Status.SUFFICIENT`,
+        :attr:`~mailvalidator.models.Status.PHASE_OUT`, or
+        :attr:`~mailvalidator.models.Status.INSUFFICIENT`.
+    :rtype: ~mailvalidator.models.Status
     """
     if name in _GOOD_CIPHERS:
         return Status.GOOD
@@ -154,11 +154,11 @@ def _tls_version_status(version: str) -> Status:
     :param version: TLS version string as returned by
         :meth:`ssl.SSLSocket.version` (e.g. ``"TLSv1.3"``).
     :type version: str
-    :returns: :attr:`~mailcheck.models.Status.OK` for TLS 1.3,
-        :attr:`~mailcheck.models.Status.SUFFICIENT` for TLS 1.2,
-        :attr:`~mailcheck.models.Status.PHASE_OUT` for TLS 1.0/1.1,
-        :attr:`~mailcheck.models.Status.INSUFFICIENT` otherwise.
-    :rtype: ~mailcheck.models.Status
+    :returns: :attr:`~mailvalidator.models.Status.OK` for TLS 1.3,
+        :attr:`~mailvalidator.models.Status.SUFFICIENT` for TLS 1.2,
+        :attr:`~mailvalidator.models.Status.PHASE_OUT` for TLS 1.0/1.1,
+        :attr:`~mailvalidator.models.Status.INSUFFICIENT` otherwise.
+    :rtype: ~mailvalidator.models.Status
     """
     if version == "TLSv1.3":
         return Status.OK
@@ -191,12 +191,12 @@ def _classify_ec_curve(curve: str) -> Status:
     :param curve: Curve name as reported by OpenSSL (e.g. ``"x25519"``).
         Case-insensitive.
     :type curve: str
-    :returns: :attr:`~mailcheck.models.Status.GOOD` for recommended curves,
-        :attr:`~mailcheck.models.Status.PHASE_OUT` for deprecated ones,
-        :attr:`~mailcheck.models.Status.INSUFFICIENT` for other named curves,
-        :attr:`~mailcheck.models.Status.INFO` when the name is empty (not
+    :returns: :attr:`~mailvalidator.models.Status.GOOD` for recommended curves,
+        :attr:`~mailvalidator.models.Status.PHASE_OUT` for deprecated ones,
+        :attr:`~mailvalidator.models.Status.INSUFFICIENT` for other named curves,
+        :attr:`~mailvalidator.models.Status.INFO` when the name is empty (not
         exposed by this Python/OpenSSL build).
-    :rtype: ~mailcheck.models.Status
+    :rtype: ~mailvalidator.models.Status
     """
     c = curve.lower()
     if c in _GOOD_EC_CURVES:
@@ -434,7 +434,7 @@ def _probe_tls(
     port: int,
     helo_domain: str,
 ) -> tuple[TLSDetails | None, str, str | None]:  # pragma: no cover
-    """Connect via STARTTLS and populate a :class:`~mailcheck.models.TLSDetails` object.
+    """Connect via STARTTLS and populate a :class:`~mailvalidator.models.TLSDetails` object.
 
     **SNI**: SNI requires a DNS hostname, not an IP address.  For bare IPs
     ``sni_hostname`` is set to ``None`` and ``check_hostname`` is disabled on
@@ -660,10 +660,10 @@ def _check_tls_version(
     :type sni_hostname: str or None
     :param details: TLS details object; ``tls_version`` is used in the
         result value field.
-    :type details: ~mailcheck.models.TLSDetails
+    :type details: ~mailvalidator.models.TLSDetails
     :param checks: List to which the new
-        :class:`~mailcheck.models.CheckResult` is appended.
-    :type checks: list[~mailcheck.models.CheckResult]
+        :class:`~mailvalidator.models.CheckResult` is appended.
+    :type checks: list[~mailvalidator.models.CheckResult]
     """
     accepted: list[str] = []
     rejected: list[str] = []
@@ -1177,10 +1177,10 @@ def _check_cipher(
     :type sni_hostname: str or None
     :param details: TLS details object; ``offered_ciphers_by_version`` and
         ``offered_ciphers`` are populated as a side-effect.
-    :type details: ~mailcheck.models.TLSDetails
+    :type details: ~mailvalidator.models.TLSDetails
     :param checks: List to which per-version
-        :class:`~mailcheck.models.CheckResult` items are appended.
-    :type checks: list[~mailcheck.models.CheckResult]
+        :class:`~mailvalidator.models.CheckResult` items are appended.
+    :type checks: list[~mailvalidator.models.CheckResult]
     """
     details.offered_ciphers_by_version: dict[str, list[str]] = {}  # type: ignore[attr-defined]
 
@@ -1249,10 +1249,10 @@ def _check_cipher_order(
     :param sni_hostname: Hostname for SNI, or ``None`` for bare IPs.
     :type sni_hostname: str or None
     :param details: TLS details object; reads ``offered_ciphers_by_version``.
-    :type details: ~mailcheck.models.TLSDetails
+    :type details: ~mailvalidator.models.TLSDetails
     :param checks: List to which per-version
-        :class:`~mailcheck.models.CheckResult` items are appended.
-    :type checks: list[~mailcheck.models.CheckResult]
+        :class:`~mailvalidator.models.CheckResult` items are appended.
+    :type checks: list[~mailvalidator.models.CheckResult]
     """
     by_version: dict[str, list[str]] = getattr(
         details, "offered_ciphers_by_version", {}
@@ -1370,10 +1370,10 @@ def _check_key_exchange(details: TLSDetails, checks: list[CheckResult]) -> None:
     - other       → static RSA key exchange (no forward secrecy; phase-out).
 
     :param details: TLS details object containing session metadata.
-    :type details: ~mailcheck.models.TLSDetails
-    :param checks: List to which :class:`~mailcheck.models.CheckResult`
+    :type details: ~mailvalidator.models.TLSDetails
+    :param checks: List to which :class:`~mailvalidator.models.CheckResult`
         items are appended.
-    :type checks: list[~mailcheck.models.CheckResult]
+    :type checks: list[~mailvalidator.models.CheckResult]
     """
     tls_ver = details.tls_version
     cipher = details.cipher_name
@@ -1492,10 +1492,10 @@ def _check_hash_function(details: TLSDetails, checks: list[CheckResult]) -> None
 
     :param details: TLS details object; reads ``tls_version`` and
         ``cipher_name``.
-    :type details: ~mailcheck.models.TLSDetails
-    :param checks: List to which a :class:`~mailcheck.models.CheckResult`
+    :type details: ~mailvalidator.models.TLSDetails
+    :param checks: List to which a :class:`~mailvalidator.models.CheckResult`
         is appended.
-    :type checks: list[~mailcheck.models.CheckResult]
+    :type checks: list[~mailvalidator.models.CheckResult]
     """
     if details.tls_version == "TLSv1.3":
         checks.append(
@@ -1549,10 +1549,10 @@ def _check_compression(details: TLSDetails, checks: list[CheckResult]) -> None:
     """Flag TLS-layer compression, which enables the CRIME attack (CVE-2012-4929).
 
     :param details: TLS details object; reads ``compression``.
-    :type details: ~mailcheck.models.TLSDetails
-    :param checks: List to which a :class:`~mailcheck.models.CheckResult`
+    :type details: ~mailvalidator.models.TLSDetails
+    :param checks: List to which a :class:`~mailvalidator.models.CheckResult`
         is appended.
-    :type checks: list[~mailcheck.models.CheckResult]
+    :type checks: list[~mailvalidator.models.CheckResult]
     """
     comp = details.compression
     if not comp:
@@ -1609,10 +1609,10 @@ def _check_renegotiation(details: TLSDetails, checks: list[CheckResult]) -> None
 
     :param details: TLS details object; reads ``tls_version`` and
         ``secure_renegotiation``.
-    :type details: ~mailcheck.models.TLSDetails
-    :param checks: List to which :class:`~mailcheck.models.CheckResult`
+    :type details: ~mailvalidator.models.TLSDetails
+    :param checks: List to which :class:`~mailvalidator.models.CheckResult`
         items are appended.
-    :type checks: list[~mailcheck.models.CheckResult]
+    :type checks: list[~mailvalidator.models.CheckResult]
     """
     if details.tls_version == "TLSv1.3":
         checks.append(
@@ -1680,10 +1680,10 @@ def _check_certificate(
     """Report trust chain, public key, signature algorithm, domain match, and expiry.
 
     :param details: TLS details object containing parsed certificate metadata.
-    :type details: ~mailcheck.models.TLSDetails
-    :param checks: List to which :class:`~mailcheck.models.CheckResult`
+    :type details: ~mailvalidator.models.TLSDetails
+    :param checks: List to which :class:`~mailvalidator.models.CheckResult`
         items are appended.
-    :type checks: list[~mailcheck.models.CheckResult]
+    :type checks: list[~mailvalidator.models.CheckResult]
     :param host: Hostname used in the SMTP connection; checked against the
         certificate SAN/CN.
     :type host: str
@@ -1877,9 +1877,9 @@ def _check_caa(host: str, checks: list[CheckResult]) -> None:
 
     :param host: MX hostname to start the DNS hierarchy walk from.
     :type host: str
-    :param checks: List to which a :class:`~mailcheck.models.CheckResult`
+    :param checks: List to which a :class:`~mailvalidator.models.CheckResult`
         is appended.
-    :type checks: list[~mailcheck.models.CheckResult]
+    :type checks: list[~mailvalidator.models.CheckResult]
     """
     labels = host.rstrip(".").split(".")
     caa_records: list[str] = []
@@ -2090,9 +2090,9 @@ def _check_dane(
     :param cert_der: DER-encoded certificate stashed by :func:`_probe_tls`,
         or ``None`` to trigger a fresh fetch.
     :type cert_der: bytes or None
-    :param checks: List to which :class:`~mailcheck.models.CheckResult`
+    :param checks: List to which :class:`~mailvalidator.models.CheckResult`
         items are appended.
-    :type checks: list[~mailcheck.models.CheckResult]
+    :type checks: list[~mailvalidator.models.CheckResult]
     """
     tlsa_name = f"_{port}._tcp.{host}"
     records = resolve(tlsa_name, "TLSA")
@@ -2248,7 +2248,7 @@ def _test_open_relay(smtp: smtplib.SMTP, helo_domain: str) -> bool:  # pragma: n
 def check_smtp(
     host: str,
     port: int = 25,
-    helo_domain: str = "mailcheck.local",
+    helo_domain: str = "mailvalidator.local",
 ) -> SMTPDiagResult:  # pragma: no cover
     """Run all SMTP diagnostics for *host*:*port* and return a populated result.
 
@@ -2257,10 +2257,10 @@ def check_smtp(
     :param port: TCP port to probe.  Defaults to ``25``.
     :type port: int
     :param helo_domain: Domain name sent in the EHLO greeting.
-        Defaults to ``"mailcheck.local"``.
+        Defaults to ``"mailvalidator.local"``.
     :type helo_domain: str
-    :returns: A fully populated :class:`~mailcheck.models.SMTPDiagResult`.
-    :rtype: ~mailcheck.models.SMTPDiagResult
+    :returns: A fully populated :class:`~mailvalidator.models.SMTPDiagResult`.
+    :rtype: ~mailvalidator.models.SMTPDiagResult
     """
     result = SMTPDiagResult(host=host, port=port)
 

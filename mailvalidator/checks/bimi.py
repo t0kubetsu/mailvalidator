@@ -14,18 +14,18 @@ from __future__ import annotations
 
 import re
 
-from mailcheck.dns_utils import resolve
-from mailcheck.models import BIMIResult, CheckResult, Status
+from mailvalidator.dns_utils import resolve
+from mailvalidator.models import BIMIResult, CheckResult, Status
 
 
 def check_bimi(domain: str) -> BIMIResult:
     """Look up and validate the BIMI record at ``default._bimi.<domain>``.
 
     :param domain: The domain whose BIMI record should be validated.
-    :returns: A :class:`~mailcheck.models.BIMIResult` containing the raw
-        record string and :class:`~mailcheck.models.CheckResult` items
+    :returns: A :class:`~mailvalidator.models.BIMIResult` containing the raw
+        record string and :class:`~mailvalidator.models.CheckResult` items
         covering version, logo URL, and authority evidence.
-    :rtype: ~mailcheck.models.BIMIResult
+    :rtype: ~mailvalidator.models.BIMIResult
     """
     result = BIMIResult(domain=domain)
     bimi_name = f"default._bimi.{domain}"
@@ -69,7 +69,7 @@ def _parse_tags(record: str) -> dict[str, str]:
 
 
 def _validate(tags: dict[str, str], result: BIMIResult) -> None:
-    """Validate BIMI tag values and append :class:`~mailcheck.models.CheckResult` items to *result*.
+    """Validate BIMI tag values and append :class:`~mailvalidator.models.CheckResult` items to *result*.
 
     :param tags: Parsed tag/value pairs from the BIMI record.
     :param result: Result object to append check items to.

@@ -1,12 +1,12 @@
-"""Tests for mailcheck/assessor.py."""
+"""Tests for mailvalidator/assessor.py."""
 
 from __future__ import annotations
 
 import socket as _socket
 from unittest.mock import MagicMock, patch
 
-from mailcheck.assessor import _resolve_mx_ips, assess
-from mailcheck.models import (
+from mailvalidator.assessor import _resolve_mx_ips, assess
+from mailvalidator.models import (
     BIMIResult,
     DMARCResult,
     DKIMResult,
@@ -75,7 +75,7 @@ class TestAssess:
                 mocks[k] = v
             else:
                 mocks[k] = MagicMock(return_value=v)
-        return patch.multiple("mailcheck.assessor", **mocks)
+        return patch.multiple("mailvalidator.assessor", **mocks)
 
     def test_returns_full_report(self):
         with self._ctx(
@@ -139,7 +139,7 @@ class TestAssess:
             }
         ):
             with patch(
-                "mailcheck.assessor.check_mx", return_value=make_mx_result(records)
+                "mailvalidator.assessor.check_mx", return_value=make_mx_result(records)
             ):
                 assess("example.com")
         assert mock_smtp.call_count == 3
@@ -152,7 +152,7 @@ class TestAssess:
         mock_smtp = MagicMock(return_value=MagicMock())
         with self._ctx({"check_smtp": mock_smtp, "check_blacklist": mock_bl}):
             with patch(
-                "mailcheck.assessor.check_mx", return_value=make_mx_result(records)
+                "mailvalidator.assessor.check_mx", return_value=make_mx_result(records)
             ):
                 assess("example.com")
         mock_bl.assert_called_once_with("9.9.9.9")
@@ -168,7 +168,7 @@ class TestAssess:
             }
         ):
             with patch(
-                "mailcheck.assessor.socket.gethostbyname", return_value="3.3.3.3"
+                "mailvalidator.assessor.socket.gethostbyname", return_value="3.3.3.3"
             ):
                 assess("example.com")
         mock_bl.assert_called_once_with("3.3.3.3")
@@ -182,7 +182,7 @@ class TestAssess:
             }
         ):
             with patch(
-                "mailcheck.assessor.socket.gethostbyname",
+                "mailvalidator.assessor.socket.gethostbyname",
                 side_effect=_socket.gaierror("no address"),
             ):
                 report = assess("example.com")

@@ -19,7 +19,7 @@ import ipaddress
 import socket
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from mailcheck.models import BlacklistResult, CheckResult, Status
+from mailvalidator.models import BlacklistResult, CheckResult, Status
 
 # 100+ widely-used DNSBLs
 DNSBL_ZONES: list[str] = [
@@ -214,7 +214,7 @@ def check_blacklist(
         Defaults to ``50``.
     :type max_workers: int
     :returns: Result containing the list of zones where *ip* was found
-        listed and a single summary :class:`~mailcheck.models.CheckResult`.
+        listed and a single summary :class:`~mailvalidator.models.CheckResult`.
     :rtype: BlacklistResult
     """
     all_zones = zones or DNSBL_ZONES

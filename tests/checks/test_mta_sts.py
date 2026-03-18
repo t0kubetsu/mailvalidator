@@ -1,17 +1,17 @@
-"""Tests for mailcheck/checks/mta_sts.py."""
+"""Tests for mailvalidator/checks/mta_sts.py."""
 
 from __future__ import annotations
 
 import urllib.error
 from unittest.mock import patch
 
-from mailcheck.checks.mta_sts import (
+from mailvalidator.checks.mta_sts import (
     _fetch_policy,
     _parse_policy_file,
     _validate_policy,
     check_mta_sts,
 )
-from mailcheck.models import MTASTSResult, Status
+from mailvalidator.models import MTASTSResult, Status
 
 
 class TestMTASTS:
@@ -20,9 +20,9 @@ class TestMTASTS:
         policy_text = (
             "version: STSv1\nmode: enforce\nmax_age: 604800\nmx: mail.example.com"
         )
-        with patch("mailcheck.checks.mta_sts.resolve", return_value=[dns_record]):
+        with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailcheck.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
             ):
                 result = check_mta_sts("example.com")
         assert any(
@@ -30,7 +30,7 @@ class TestMTASTS:
         )
 
     def test_not_found(self):
-        with patch("mailcheck.checks.mta_sts.resolve", return_value=[]):
+        with patch("mailvalidator.checks.mta_sts.resolve", return_value=[]):
             result = check_mta_sts("example.com")
         assert any(c.status == Status.NOT_FOUND for c in result.checks)
 
@@ -41,12 +41,12 @@ class TestMTASTSExtra:
         policy_text = (
             "version: STSv1\nmode: enforce\nmax_age: 604800\nmx: mail.example.com"
         )
-        with patch("mailcheck.checks.mta_sts.resolve", return_value=[dns_record]):
+        with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailcheck.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
             ):
                 with patch(
-                    "mailcheck.checks.mta_sts._parse_dns_record",
+                    "mailvalidator.checks.mta_sts._parse_dns_record",
                     return_value={"v": "STSv2", "id": "20240101T000000"},
                 ):
                     result = check_mta_sts("example.com")
@@ -59,9 +59,9 @@ class TestMTASTSExtra:
         policy_text = (
             "version: STSv1\nmode: enforce\nmax_age: 604800\nmx: mail.example.com"
         )
-        with patch("mailcheck.checks.mta_sts.resolve", return_value=[dns_record]):
+        with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailcheck.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
             ):
                 result = check_mta_sts("example.com")
         assert any(
@@ -71,9 +71,9 @@ class TestMTASTSExtra:
 
     def test_policy_fetch_failure(self):
         dns_record = '"v=STSv1; id=20240101T000000"'
-        with patch("mailcheck.checks.mta_sts.resolve", return_value=[dns_record]):
+        with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailcheck.checks.mta_sts._fetch_policy",
+                "mailvalidator.checks.mta_sts._fetch_policy",
                 return_value=("", "connection refused"),
             ):
                 result = check_mta_sts("example.com")
@@ -86,9 +86,9 @@ class TestMTASTSExtra:
         policy_text = (
             "version: STSv1\nmode: testing\nmax_age: 604800\nmx: mail.example.com"
         )
-        with patch("mailcheck.checks.mta_sts.resolve", return_value=[dns_record]):
+        with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailcheck.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
             ):
                 result = check_mta_sts("example.com")
         assert any(
@@ -101,9 +101,9 @@ class TestMTASTSExtra:
         policy_text = (
             "version: STSv1\nmode: none\nmax_age: 604800\nmx: mail.example.com"
         )
-        with patch("mailcheck.checks.mta_sts.resolve", return_value=[dns_record]):
+        with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailcheck.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
             ):
                 result = check_mta_sts("example.com")
         assert any(
@@ -116,9 +116,9 @@ class TestMTASTSExtra:
         policy_text = (
             "version: STSv1\nmode: enforce\nmax_age: 3600\nmx: mail.example.com"
         )
-        with patch("mailcheck.checks.mta_sts.resolve", return_value=[dns_record]):
+        with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailcheck.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
             ):
                 result = check_mta_sts("example.com")
         assert any(
@@ -130,9 +130,9 @@ class TestMTASTSExtra:
         policy_text = (
             "version: STSv1\nmode: enforce\nmax_age: notanumber\nmx: mail.example.com"
         )
-        with patch("mailcheck.checks.mta_sts.resolve", return_value=[dns_record]):
+        with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailcheck.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
             ):
                 result = check_mta_sts("example.com")
         assert any(
@@ -142,9 +142,9 @@ class TestMTASTSExtra:
     def test_missing_max_age_error(self):
         dns_record = '"v=STSv1; id=20240101T000000"'
         policy_text = "version: STSv1\nmode: enforce\nmx: mail.example.com"
-        with patch("mailcheck.checks.mta_sts.resolve", return_value=[dns_record]):
+        with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailcheck.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
             ):
                 result = check_mta_sts("example.com")
         assert any(
@@ -154,9 +154,9 @@ class TestMTASTSExtra:
     def test_missing_mx_entries_warns(self):
         dns_record = '"v=STSv1; id=20240101T000000"'
         policy_text = "version: STSv1\nmode: enforce\nmax_age: 604800"
-        with patch("mailcheck.checks.mta_sts.resolve", return_value=[dns_record]):
+        with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailcheck.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
             ):
                 result = check_mta_sts("example.com")
         assert any(
@@ -166,9 +166,9 @@ class TestMTASTSExtra:
     def test_multiple_mx_entries(self):
         dns_record = '"v=STSv1; id=20240101T000000"'
         policy_text = "version: STSv1\nmode: enforce\nmax_age: 604800\nmx: mx1.example.com\nmx: mx2.example.com"
-        with patch("mailcheck.checks.mta_sts.resolve", return_value=[dns_record]):
+        with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailcheck.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
             ):
                 result = check_mta_sts("example.com")
         mx_check = next(c for c in result.checks if c.name == "MX Entries")
@@ -189,7 +189,7 @@ class TestMTASTSCoverage:
 
     def test_fetch_policy_url_error(self):
         with patch(
-            "mailcheck.checks.mta_sts.urllib.request.urlopen",
+            "mailvalidator.checks.mta_sts.urllib.request.urlopen",
             side_effect=urllib.error.URLError("connection refused"),
         ):
             text, err = _fetch_policy(
@@ -200,7 +200,7 @@ class TestMTASTSCoverage:
 
     def test_fetch_policy_generic_exception(self):
         with patch(
-            "mailcheck.checks.mta_sts.urllib.request.urlopen",
+            "mailvalidator.checks.mta_sts.urllib.request.urlopen",
             side_effect=RuntimeError("unexpected"),
         ):
             text, err = _fetch_policy(
@@ -219,7 +219,7 @@ class TestMTASTSRemaining:
             "unittest.mock", fromlist=["MagicMock"]
         ).MagicMock(return_value=False)
         with patch(
-            "mailcheck.checks.mta_sts.urllib.request.urlopen",
+            "mailvalidator.checks.mta_sts.urllib.request.urlopen",
             return_value=mock_response,
         ):
             text, err = _fetch_policy(

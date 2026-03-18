@@ -1,4 +1,4 @@
-"""Shared result dataclasses and the :class:`Status` enum for mailcheck.
+"""Shared result dataclasses and the :class:`Status` enum for mailvalidator.
 
 Every check function returns one of the typed ``*Result`` objects defined
 here.  :class:`CheckResult` is the universal single-check carrier; the
@@ -283,7 +283,7 @@ class BlacklistResult:
 
 @dataclass
 class FullReport:
-    """Aggregated result of all checks run by :func:`mailcheck.assessor.assess`.
+    """Aggregated result of all checks run by :func:`mailvalidator.assessor.assess`.
 
     Individual fields are ``None`` or empty list when the corresponding check
     was skipped or produced no result.

@@ -1,12 +1,12 @@
-"""Tests for mailcheck/checks/blacklist.py."""
+"""Tests for mailvalidator/checks/blacklist.py."""
 
 from __future__ import annotations
 
 import socket as _socket
 from unittest.mock import patch
 
-from mailcheck.checks.blacklist import _check_single, _reverse_ip, check_blacklist
-from mailcheck.models import Status
+from mailvalidator.checks.blacklist import _check_single, _reverse_ip, check_blacklist
+from mailvalidator.models import Status
 
 
 class TestBlacklist:
@@ -25,7 +25,7 @@ class TestBlacklist:
 
     def test_listed_returns_true_for_127_0_0_2(self):
         with patch(
-            "mailcheck.checks.blacklist.socket.gethostbyname", return_value="127.0.0.2"
+            "mailvalidator.checks.blacklist.socket.gethostbyname", return_value="127.0.0.2"
         ):
             zone, listed = _check_single("1.2.3.4", "zen.spamhaus.org")
         assert listed is True
@@ -34,7 +34,7 @@ class TestBlacklist:
     def test_not_listed_for_127_255_255_255(self):
         """127.255.255.255 (bondedsender.org) must NOT count as listed."""
         with patch(
-            "mailcheck.checks.blacklist.socket.gethostbyname",
+            "mailvalidator.checks.blacklist.socket.gethostbyname",
             return_value="127.255.255.255",
         ):
             zone, listed = _check_single("1.1.1.1", "query.bondedsender.org")
@@ -42,14 +42,14 @@ class TestBlacklist:
 
     def test_not_listed_for_127_0_0_3(self):
         with patch(
-            "mailcheck.checks.blacklist.socket.gethostbyname", return_value="127.0.0.3"
+            "mailvalidator.checks.blacklist.socket.gethostbyname", return_value="127.0.0.3"
         ):
             _, listed = _check_single("1.2.3.4", "some.dnsbl.example")
         assert listed is False
 
     def test_not_listed_on_nxdomain(self):
         with patch(
-            "mailcheck.checks.blacklist.socket.gethostbyname",
+            "mailvalidator.checks.blacklist.socket.gethostbyname",
             side_effect=_socket.gaierror("NXDOMAIN"),
         ):
             _, listed = _check_single("1.2.3.4", "zen.spamhaus.org")
@@ -61,7 +61,7 @@ class TestBlacklist:
 
     def test_clean_ip_produces_ok_result(self):
         with patch(
-            "mailcheck.checks.blacklist.socket.gethostbyname",
+            "mailvalidator.checks.blacklist.socket.gethostbyname",
             side_effect=_socket.gaierror("NXDOMAIN"),
         ):
             result = check_blacklist(
@@ -77,7 +77,7 @@ class TestBlacklist:
             raise _socket.gaierror("NXDOMAIN")
 
         with patch(
-            "mailcheck.checks.blacklist.socket.gethostbyname", side_effect=_fake
+            "mailvalidator.checks.blacklist.socket.gethostbyname", side_effect=_fake
         ):
             result = check_blacklist(
                 "1.2.3.4", zones=["zen.spamhaus.org", "bl.spamcop.net"]
@@ -94,14 +94,14 @@ class TestBlacklist:
             raise _socket.gaierror("NXDOMAIN")
 
         with patch(
-            "mailcheck.checks.blacklist.socket.gethostbyname", side_effect=_counting
+            "mailvalidator.checks.blacklist.socket.gethostbyname", side_effect=_counting
         ):
             check_blacklist("1.2.3.4", zones=["zen.spamhaus.org", "zen.spamhaus.org"])
         assert call_count[0] == 1
 
     def test_total_checked_matches_unique_zones(self):
         with patch(
-            "mailcheck.checks.blacklist.socket.gethostbyname",
+            "mailvalidator.checks.blacklist.socket.gethostbyname",
             side_effect=_socket.gaierror("NXDOMAIN"),
         ):
             result = check_blacklist(

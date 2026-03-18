@@ -27,8 +27,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from mailcheck.dns_utils import resolve
-from mailcheck.models import CheckResult, SPFResult, Status
+from mailvalidator.dns_utils import resolve
+from mailvalidator.models import CheckResult, SPFResult, Status
 
 # RFC 7208 §4.6.4
 _MAX_DNS_LOOKUPS = 10
@@ -248,7 +248,7 @@ def check_spf(domain: str) -> SPFResult:
     :param domain: The domain whose SPF TXT record should be validated.
     :type domain: str
     :returns: Result containing the raw record string and
-        :class:`~mailcheck.models.CheckResult` items for the version tag,
+        :class:`~mailvalidator.models.CheckResult` items for the version tag,
         policy (``all`` qualifier), include resolution tree, DNS lookup
         count, and any ``ptr`` deprecation warnings.
     :rtype: SPFResult
@@ -294,7 +294,7 @@ def _validate_spf(record: str, domain: str, result: SPFResult) -> None:
 
     :param record: Raw SPF TXT record string (e.g. ``"v=spf1 include:… -all"``).
     :param domain: Domain the record belongs to; used as root for tree walking.
-    :param result: :class:`~mailcheck.models.SPFResult` to append check items to.
+    :param result: :class:`~mailvalidator.models.SPFResult` to append check items to.
     """
     terms = record.split()
 
@@ -426,19 +426,19 @@ def _emit_all_check(
     result: SPFResult,
     via_redirect: bool = False,
 ) -> None:
-    """Append the ``SPF Policy`` :class:`~mailcheck.models.CheckResult` for *all_term*.
+    """Append the ``SPF Policy`` :class:`~mailvalidator.models.CheckResult` for *all_term*.
 
     Grading per RFC 7208 and the NCSC-NL mail test procedure:
 
-    - ``-all`` → :attr:`~mailcheck.models.Status.OK` (strict fail).
-    - ``~all`` → :attr:`~mailcheck.models.Status.OK` (softfail; preferred
+    - ``-all`` → :attr:`~mailvalidator.models.Status.OK` (strict fail).
+    - ``~all`` → :attr:`~mailvalidator.models.Status.OK` (softfail; preferred
       for sending domains to avoid blocking forwarded mail).
-    - ``?all`` → :attr:`~mailcheck.models.Status.WARNING` (neutral; no protection).
-    - ``+all`` → :attr:`~mailcheck.models.Status.ERROR` (pass; critical
+    - ``?all`` → :attr:`~mailvalidator.models.Status.WARNING` (neutral; no protection).
+    - ``+all`` → :attr:`~mailvalidator.models.Status.ERROR` (pass; critical
       misconfiguration).
 
     :param all_term: The raw ``all`` term from the SPF record (e.g. ``"-all"``).
-    :param result: :class:`~mailcheck.models.SPFResult` to append the check to.
+    :param result: :class:`~mailvalidator.models.SPFResult` to append the check to.
     :param via_redirect: When ``True``, the term was found in a
         ``redirect=`` target rather than the top-level record.
     """

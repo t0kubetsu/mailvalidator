@@ -4,7 +4,7 @@ What this checks
 ----------------
 RFC 6376 requires that ``<selector>._domainkey.<domain>`` resolves to a valid
 DKIM TXT record.  Selectors are chosen by the sending service and are not
-discoverable from DNS alone, so mailcheck cannot enumerate them.
+discoverable from DNS alone, so mailvalidator cannot enumerate them.
 
 Instead, this check validates the *base node* ``_domainkey.<domain>``:
 
@@ -14,7 +14,7 @@ Instead, this check validates the *base node* ``_domainkey.<domain>``:
 - A non-conformant name server answers ``NXDOMAIN``, which causes some
   receivers to abort DKIM verification before even trying the selector lookup.
 
-:func:`~mailcheck.dns_utils.resolve` is called with ``raise_nxdomain=True``
+:func:`~mailvalidator.dns_utils.resolve` is called with ``raise_nxdomain=True``
 so ``None`` reliably signals NXDOMAIN, while ``[]`` signals NOERROR/empty
 (the correct response for an empty non-terminal).
 
@@ -24,18 +24,18 @@ specific selector's record use ``dig <selector>._domainkey.<domain> TXT``.
 
 from __future__ import annotations
 
-from mailcheck.dns_utils import resolve
-from mailcheck.models import CheckResult, DKIMResult, Status
+from mailvalidator.dns_utils import resolve
+from mailvalidator.models import CheckResult, DKIMResult, Status
 
 
 def check_dkim(domain: str) -> DKIMResult:
     """Check that ``_domainkey.<domain>`` responds correctly per RFC 2308.
 
     :param domain: The domain whose DKIM base node should be validated.
-    :returns: A :class:`~mailcheck.models.DKIMResult` containing one
-        :class:`~mailcheck.models.CheckResult` for the base-node conformance
+    :returns: A :class:`~mailvalidator.models.DKIMResult` containing one
+        :class:`~mailvalidator.models.CheckResult` for the base-node conformance
         check.
-    :rtype: ~mailcheck.models.DKIMResult
+    :rtype: ~mailvalidator.models.DKIMResult
     """
     result = DKIMResult(domain=domain)
     base_node = f"_domainkey.{domain}"

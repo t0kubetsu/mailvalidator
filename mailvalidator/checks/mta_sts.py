@@ -14,8 +14,8 @@ from __future__ import annotations
 import urllib.error
 import urllib.request
 
-from mailcheck.dns_utils import resolve
-from mailcheck.models import CheckResult, MTASTSResult, Status
+from mailvalidator.dns_utils import resolve
+from mailvalidator.models import CheckResult, MTASTSResult, Status
 
 _POLICY_URL_TPL = "https://mta-sts.{domain}/.well-known/mta-sts.txt"
 _TIMEOUT = 10
@@ -34,10 +34,10 @@ def check_mta_sts(domain: str) -> MTASTSResult:
 
     :param domain: Domain whose MTA-STS configuration should be validated.
     :type domain: str
-    :returns: A :class:`~mailcheck.models.MTASTSResult` containing the raw
+    :returns: A :class:`~mailvalidator.models.MTASTSResult` containing the raw
         DNS record, the parsed policy dict, and a list of
-        :class:`~mailcheck.models.CheckResult` items for each validated field.
-    :rtype: ~mailcheck.models.MTASTSResult
+        :class:`~mailvalidator.models.CheckResult` items for each validated field.
+    :rtype: ~mailvalidator.models.MTASTSResult
     """
     result = MTASTSResult(domain=domain)
 
@@ -196,12 +196,12 @@ def _fetch_policy(url: str) -> tuple[str, str]:
 
 
 def _validate_policy(policy: dict[str, str | list[str]], result: MTASTSResult) -> None:
-    """Validate MTA-STS policy file fields and append :class:`~mailcheck.models.CheckResult` items to *result*.
+    """Validate MTA-STS policy file fields and append :class:`~mailvalidator.models.CheckResult` items to *result*.
 
     :param policy: Parsed policy dict from :func:`_parse_policy_file`.
     :type policy: dict[str, str or list[str]]
     :param result: Result object to which check items are appended.
-    :type result: ~mailcheck.models.MTASTSResult
+    :type result: ~mailvalidator.models.MTASTSResult
     """
     # mode
     mode = policy.get("mode", "")

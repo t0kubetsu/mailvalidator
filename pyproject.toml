@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mailcheck"
+name = "mailvalidator"
 version = "0.1.0"
 description = "Mail server configuration assessment CLI utility"
 readme = "README.md"
@@ -18,11 +18,11 @@ dependencies = [
 ]
 
 [project.scripts]
-mailcheck = "mailcheck.cli:app"
+mailvalidator = "mailvalidator.cli:app"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["mailcheck*"]
+include = ["mailvalidator*"]
 
 [project.optional-dependencies]
 dev = [
@@ -33,4 +33,4 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths  = ["tests"]
-addopts    = "--cov=mailcheck --cov-report=term-missing"
+addopts    = "--cov=mailvalidator --cov-report=term-missing"

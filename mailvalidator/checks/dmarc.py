@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import re
 
-from mailcheck.dns_utils import resolve
-from mailcheck.models import CheckResult, DMARCResult, Status
+from mailvalidator.dns_utils import resolve
+from mailvalidator.models import CheckResult, DMARCResult, Status
 
 
 def check_dmarc(domain: str) -> DMARCResult:
@@ -26,7 +26,7 @@ def check_dmarc(domain: str) -> DMARCResult:
     :param domain: The domain whose DMARC record should be validated.
     :type domain: str
     :returns: Result containing the raw record and
-        :class:`~mailcheck.models.CheckResult` items for policy,
+        :class:`~mailvalidator.models.CheckResult` items for policy,
         subdomain policy, reporting URIs, alignment, and percentage.
     :rtype: DMARCResult
     """
@@ -83,7 +83,7 @@ def _parse_tags(record: str) -> dict[str, str]:
 
 
 def _validate(tags: dict[str, str], result: DMARCResult) -> None:
-    """Validate DMARC tag values and append :class:`~mailcheck.models.CheckResult` items to *result*.
+    """Validate DMARC tag values and append :class:`~mailvalidator.models.CheckResult` items to *result*.
 
     :param tags: Parsed DMARC tag dictionary from :func:`_parse_tags`.
     :type tags: dict[str, str]

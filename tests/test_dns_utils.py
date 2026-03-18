@@ -1,11 +1,11 @@
-"""Tests for mailcheck/dns_utils.py."""
+"""Tests for mailvalidator/dns_utils.py."""
 
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
 
-from mailcheck.dns_utils import get_authoritative_ns, resolve, resolve_a, reverse_lookup
+from mailvalidator.dns_utils import get_authoritative_ns, resolve, resolve_a, reverse_lookup
 
 
 class TestDnsUtils:
@@ -16,7 +16,7 @@ class TestDnsUtils:
         )
         mock_answer = MagicMock()
         mock_answer.rrset = mock_rrset
-        with patch("mailcheck.dns_utils.dns.resolver.Resolver") as MockResolver:
+        with patch("mailvalidator.dns_utils.dns.resolver.Resolver") as MockResolver:
             MockResolver.return_value.resolve.return_value = mock_answer
             result = resolve("example.com", "MX")
         assert isinstance(result, list)
@@ -24,7 +24,7 @@ class TestDnsUtils:
     def test_resolve_nxdomain_returns_empty_by_default(self):
         import dns.resolver
 
-        with patch("mailcheck.dns_utils.dns.resolver.Resolver") as MockResolver:
+        with patch("mailvalidator.dns_utils.dns.resolver.Resolver") as MockResolver:
             MockResolver.return_value.resolve.side_effect = dns.resolver.NXDOMAIN()
             result = resolve("nonexistent.invalid", "TXT")
         assert result == []
@@ -32,7 +32,7 @@ class TestDnsUtils:
     def test_resolve_nxdomain_returns_none_when_raise_nxdomain(self):
         import dns.resolver
 
-        with patch("mailcheck.dns_utils.dns.resolver.Resolver") as MockResolver:
+        with patch("mailvalidator.dns_utils.dns.resolver.Resolver") as MockResolver:
             MockResolver.return_value.resolve.side_effect = dns.resolver.NXDOMAIN()
             result = resolve("nonexistent.invalid", "TXT", raise_nxdomain=True)
         assert result is None
@@ -40,7 +40,7 @@ class TestDnsUtils:
     def test_resolve_dns_exception_returns_empty(self):
         import dns.exception
 
-        with patch("mailcheck.dns_utils.dns.resolver.Resolver") as MockResolver:
+        with patch("mailvalidator.dns_utils.dns.resolver.Resolver") as MockResolver:
             MockResolver.return_value.resolve.side_effect = dns.exception.DNSException()
             result = resolve("example.com", "TXT")
         assert result == []
@@ -48,7 +48,7 @@ class TestDnsUtils:
     def test_resolve_empty_rrset_returns_empty(self):
         mock_answer = MagicMock()
         mock_answer.rrset = None
-        with patch("mailcheck.dns_utils.dns.resolver.Resolver") as MockResolver:
+        with patch("mailvalidator.dns_utils.dns.resolver.Resolver") as MockResolver:
             MockResolver.return_value.resolve.return_value = mock_answer
             result = resolve("example.com", "TXT")
         assert result == []
@@ -56,7 +56,7 @@ class TestDnsUtils:
     def test_reverse_lookup_returns_empty_on_error(self):
         import dns.exception
 
-        with patch("mailcheck.dns_utils.dns.resolver.Resolver") as MockResolver:
+        with patch("mailvalidator.dns_utils.dns.resolver.Resolver") as MockResolver:
             MockResolver.return_value.resolve.side_effect = dns.exception.DNSException()
             result = reverse_lookup("1.2.3.4")
         assert result == ""
@@ -70,7 +70,7 @@ class TestDnsUtils:
                 mock.rrset = [MagicMock(to_text=lambda: "2001:db8::1")]
             return mock
 
-        with patch("mailcheck.dns_utils.dns.resolver.Resolver") as MockResolver:
+        with patch("mailvalidator.dns_utils.dns.resolver.Resolver") as MockResolver:
             MockResolver.return_value.resolve.side_effect = _fake_resolve
             result = resolve_a("mail.example.com")
         assert "1.2.3.4" in result
@@ -93,7 +93,7 @@ class TestDnsUtilsExtra:
             return r
 
         with patch(
-            "mailcheck.dns_utils.dns.resolver.Resolver", side_effect=_patched_resolver
+            "mailvalidator.dns_utils.dns.resolver.Resolver", side_effect=_patched_resolver
         ):
             result = resolve("example.com", "TXT")
         assert isinstance(result, list)
@@ -101,7 +101,7 @@ class TestDnsUtilsExtra:
     def test_get_authoritative_ns_dns_exception(self):
         import dns.exception
 
-        with patch("mailcheck.dns_utils.dns.resolver.Resolver") as MockResolver:
+        with patch("mailvalidator.dns_utils.dns.resolver.Resolver") as MockResolver:
             MockResolver.return_value.resolve.side_effect = dns.exception.DNSException()
             result = get_authoritative_ns("example.com")
         assert result == []
@@ -113,10 +113,10 @@ class TestDnsUtilsExtra:
         mock_rr.to_text.return_value = "ns1.example.com."
         mock_answer = MagicMock()
         mock_answer.rrset = [mock_rr]
-        with patch("mailcheck.dns_utils.dns.resolver.Resolver") as MockResolver:
+        with patch("mailvalidator.dns_utils.dns.resolver.Resolver") as MockResolver:
             MockResolver.return_value.resolve.return_value = mock_answer
             with patch(
-                "mailcheck.dns_utils.socket.getaddrinfo",
+                "mailvalidator.dns_utils.socket.getaddrinfo",
                 side_effect=_socket.gaierror("no address"),
             ):
                 result = get_authoritative_ns("example.com")
@@ -129,7 +129,7 @@ class TestDnsUtilsExtra:
         )
         mock_answer = MagicMock()
         mock_answer.rrset = mock_rrset
-        with patch("mailcheck.dns_utils.dns.resolver.Resolver") as MockResolver:
+        with patch("mailvalidator.dns_utils.dns.resolver.Resolver") as MockResolver:
             MockResolver.return_value.resolve.return_value = mock_answer
             result = reverse_lookup("1.2.3.4")
         assert result == "mail.example.com"
@@ -137,7 +137,7 @@ class TestDnsUtilsExtra:
     def test_resolve_noerror_no_rrset_returns_empty(self):
         mock_answer = MagicMock()
         mock_answer.rrset = None
-        with patch("mailcheck.dns_utils.dns.resolver.Resolver") as MockResolver:
+        with patch("mailvalidator.dns_utils.dns.resolver.Resolver") as MockResolver:
             MockResolver.return_value.resolve.return_value = mock_answer
             assert resolve("example.com", "CAA") == []
 
@@ -145,9 +145,9 @@ class TestDnsUtilsExtra:
 class TestDnsUtilsRemaining:
     def test_make_resolver_uses_explicit_nameservers(self):
         """Explicit nameservers are assigned to the resolver (line 44)."""
-        from mailcheck.dns_utils import _make_resolver
+        from mailvalidator.dns_utils import _make_resolver
 
-        with patch("mailcheck.dns_utils.dns.resolver.Resolver") as MockResolver:
+        with patch("mailvalidator.dns_utils.dns.resolver.Resolver") as MockResolver:
             instance = MagicMock()
             MockResolver.return_value = instance
             r = _make_resolver(nameservers=["1.1.1.1", "8.8.8.8"])
@@ -162,10 +162,10 @@ class TestDnsUtilsRemaining:
         def _fake_getaddrinfo(host, port, proto):
             return [(None, None, None, None, ("1.2.3.4", 53))]
 
-        with patch("mailcheck.dns_utils.dns.resolver.Resolver") as MockResolver:
+        with patch("mailvalidator.dns_utils.dns.resolver.Resolver") as MockResolver:
             MockResolver.return_value.resolve.return_value = mock_answer
             with patch(
-                "mailcheck.dns_utils.socket.getaddrinfo", side_effect=_fake_getaddrinfo
+                "mailvalidator.dns_utils.socket.getaddrinfo", side_effect=_fake_getaddrinfo
             ):
                 result = get_authoritative_ns("example.com")
         assert "1.2.3.4" in result

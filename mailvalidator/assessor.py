@@ -2,7 +2,7 @@
 
 Typical usage::
 
-    from mailcheck.assessor import assess
+    from mailvalidator.assessor import assess
 
     report = assess("example.com", progress_cb=print)
 """
@@ -12,16 +12,16 @@ from __future__ import annotations
 import socket
 from typing import Callable
 
-from mailcheck.checks.blacklist import check_blacklist
-from mailcheck.checks.bimi import check_bimi
-from mailcheck.checks.dkim import check_dkim
-from mailcheck.checks.dmarc import check_dmarc
-from mailcheck.checks.mta_sts import check_mta_sts
-from mailcheck.checks.mx import check_mx
-from mailcheck.checks.smtp import check_smtp
-from mailcheck.checks.spf import check_spf
-from mailcheck.checks.tlsrpt import check_tlsrpt
-from mailcheck.models import FullReport, MXRecord, SMTPDiagResult
+from mailvalidator.checks.blacklist import check_blacklist
+from mailvalidator.checks.bimi import check_bimi
+from mailvalidator.checks.dkim import check_dkim
+from mailvalidator.checks.dmarc import check_dmarc
+from mailvalidator.checks.mta_sts import check_mta_sts
+from mailvalidator.checks.mx import check_mx
+from mailvalidator.checks.smtp import check_smtp
+from mailvalidator.checks.spf import check_spf
+from mailvalidator.checks.tlsrpt import check_tlsrpt
+from mailvalidator.models import FullReport, MXRecord, SMTPDiagResult
 
 
 def _resolve_mx_ips(records: list[MXRecord]) -> list[str]:
@@ -47,7 +47,7 @@ def assess(
     run_smtp: bool = True,
     progress_cb: Callable[[str], None] | None = None,
 ) -> FullReport:
-    """Run all mail server checks for *domain* and return a :class:`~mailcheck.models.FullReport`.
+    """Run all mail server checks for *domain* and return a :class:`~mailvalidator.models.FullReport`.
 
     :param domain: The target domain name to assess (e.g. ``"example.com"``).
     :param smtp_port: TCP port used for SMTP diagnostics.  Defaults to ``25``.
@@ -59,9 +59,9 @@ def assess(
     :param progress_cb: Optional callable invoked with a short status string
         before each check group.  Useful for driving a progress spinner in
         the CLI.
-    :returns: Populated :class:`~mailcheck.models.FullReport`; individual
+    :returns: Populated :class:`~mailvalidator.models.FullReport`; individual
         fields are ``None`` when the corresponding check was skipped.
-    :rtype: ~mailcheck.models.FullReport
+    :rtype: ~mailvalidator.models.FullReport
     """
 
     def _cb(msg: str) -> None:
