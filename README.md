@@ -47,7 +47,7 @@ $ mailvalidator check example.com
 | **MTA-STS** | `mailvalidator mta-sts` | DNS record + HTTPS policy file fetch, mode, max_age, MX entries |
 | **CAA** | *(part of smtp)* | RFC 8659 hierarchy walk, issue/issuewild tags, iodef HTTPS enforcement |
 | **DANE / TLSA** | *(part of smtp)* | TLSA existence, SHA-256/SHA-512 fingerprint match, rollover scheme |
-| **Blacklist** | `mailvalidator blacklist` | 101 DNSBL zones in parallel, RFC 5782 §2.1 compliant |
+| **Blacklist** | `mailvalidator blacklist` | 104 DNSBL zones in parallel, RFC 5782 §2.1 compliant |
 | **Full Report** | `mailvalidator check` | All of the above in one command |
 
 ---
