@@ -43,7 +43,9 @@ class TestTLSRPTExtra:
         )
 
     def test_missing_rua_error(self):
-        with patch("mailvalidator.checks.tlsrpt.resolve", return_value=['"v=TLSRPTv1"']):
+        with patch(
+            "mailvalidator.checks.tlsrpt.resolve", return_value=['"v=TLSRPTv1"']
+        ):
             result = check_tlsrpt("example.com")
         assert any(
             "rua" in c.name.lower() and c.status == Status.ERROR for c in result.checks

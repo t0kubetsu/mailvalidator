@@ -7,10 +7,9 @@ server and are covered by integration tests only.
 from __future__ import annotations
 
 import datetime as _dt
+import smtplib
 import ssl
 from unittest.mock import MagicMock, patch
-
-import smtplib
 
 import pytest
 
@@ -32,13 +31,12 @@ from mailvalidator.checks.smtp import (
     _make_cipher_probe_ctx,
     _no_verify_ctx,
     _set_sni,
-    _tlsa_fingerprint,
     _tls_version_status,
+    _tlsa_fingerprint,
     _verify_tlsa_record,
 )
 from mailvalidator.models import Status
 from tests.conftest import make_tls
-
 
 # ── SMTP TLS checks ───────────────────────────────────────────────────────────
 
@@ -292,11 +290,12 @@ class TestDANE:
 
     def _make_self_signed_der(self) -> bytes:
         """Generate a minimal self-signed cert DER for testing."""
+        import datetime
+
         from cryptography import x509
         from cryptography.hazmat.primitives import hashes, serialization
         from cryptography.hazmat.primitives.asymmetric import rsa
         from cryptography.x509.oid import NameOID
-        import datetime
 
         key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "test.example.com")])
@@ -325,6 +324,7 @@ class TestDANE:
 
     def test_fingerprint_sha256_spki(self):
         import hashlib
+
         from cryptography import x509
         from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
@@ -421,7 +421,8 @@ class TestDANE:
         next_record = "3 0 1 " + "cc" * 32  # pre-published for next cert
         checks: list = []
         with patch(
-            "mailvalidator.checks.smtp.resolve", return_value=[current_record, next_record]
+            "mailvalidator.checks.smtp.resolve",
+            return_value=[current_record, next_record],
         ):
             _check_dane(
                 "mail.example.com",
@@ -728,7 +729,9 @@ class TestCheckCipherExtra:
                 mixed if mn == ssl.TLSVersion.TLSv1_2 else []
             ),
         ):
-            _check_cipher("mail.example.com", 25, "mailvalidator.local", None, tls, checks)
+            _check_cipher(
+                "mail.example.com", 25, "mailvalidator.local", None, tls, checks
+            )
         cipher_check = next(c for c in checks if "TLSv1.2" in c.name)
         assert cipher_check.status == Status.PHASE_OUT
 
@@ -1167,7 +1170,8 @@ class TestCheckCaaExtra:
     def test_valid_caa_ok(self):
         checks: list = []
         with patch(
-            "mailvalidator.checks.smtp.resolve", return_value=['0 issue "letsencrypt.org"']
+            "mailvalidator.checks.smtp.resolve",
+            return_value=['0 issue "letsencrypt.org"'],
         ):
             _check_caa("mail.example.com", checks)
         assert checks[0].status == Status.OK
@@ -1357,8 +1361,12 @@ class TestCheckDaneExtra:
         record1 = f"2 0 1 {fp}"
         record2 = "2 0 1 " + "cc" * 32  # non-matching DANE-TA
         checks: list = []
-        with patch("mailvalidator.checks.smtp.resolve", return_value=[record1, record2]):
-            _check_dane("mail.example.com", 25, "mailvalidator.local", None, der, checks)
+        with patch(
+            "mailvalidator.checks.smtp.resolve", return_value=[record1, record2]
+        ):
+            _check_dane(
+                "mail.example.com", 25, "mailvalidator.local", None, der, checks
+            )
         rollover = next(c for c in checks if "Rollover" in c.name)
         # Two DANE-TA records without DANE-EE → non-standard
         assert rollover.status == Status.WARNING
@@ -1446,8 +1454,12 @@ class TestCheckDaneEeEeRollover:
         record1 = f"3 0 1 {fp}"  # DANE-EE matching current cert
         record2 = "3 0 1 " + "dd" * 32  # DANE-EE pre-published for next cert
         checks: list = []
-        with patch("mailvalidator.checks.smtp.resolve", return_value=[record1, record2]):
-            _check_dane("mail.example.com", 25, "mailvalidator.local", None, der, checks)
+        with patch(
+            "mailvalidator.checks.smtp.resolve", return_value=[record1, record2]
+        ):
+            _check_dane(
+                "mail.example.com", 25, "mailvalidator.local", None, der, checks
+            )
         rollover = next(c for c in checks if "Rollover" in c.name)
         assert rollover.status == Status.OK
         assert "EE + DANE-EE" in rollover.details[0]
@@ -1489,7 +1501,9 @@ class TestCheckDaneEeTaRollover:
         with patch(
             "mailvalidator.checks.smtp.resolve", return_value=[ee_record, ta_record]
         ):
-            _check_dane("mail.example.com", 25, "mailvalidator.local", None, der, checks)
+            _check_dane(
+                "mail.example.com", 25, "mailvalidator.local", None, der, checks
+            )
         rollover = next(c for c in checks if "Rollover" in c.name)
         assert rollover.status == Status.OK
         assert "EE + DANE-TA" in rollover.details[0]

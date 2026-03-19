@@ -12,8 +12,8 @@ from mailvalidator.cli import _validate_domain, _validate_host, _validate_ip, ap
 from mailvalidator.models import (
     BIMIResult,
     BlacklistResult,
-    DMARCResult,
     DKIMResult,
+    DMARCResult,
     FullReport,
     MTASTSResult,
     SMTPDiagResult,
@@ -103,7 +103,8 @@ class TestCliCommands:
     def test_cmd_spf(self):
         with (
             patch(
-                "mailvalidator.cli.check_spf", return_value=make_simple_result(SPFResult)
+                "mailvalidator.cli.check_spf",
+                return_value=make_simple_result(SPFResult),
             ),
             patch("mailvalidator.cli.print_spf"),
         ):
@@ -122,7 +123,8 @@ class TestCliCommands:
     def test_cmd_dkim(self):
         with (
             patch(
-                "mailvalidator.cli.check_dkim", return_value=make_simple_result(DKIMResult)
+                "mailvalidator.cli.check_dkim",
+                return_value=make_simple_result(DKIMResult),
             ),
             patch("mailvalidator.cli.print_dkim"),
         ):
@@ -131,7 +133,8 @@ class TestCliCommands:
     def test_cmd_bimi(self):
         with (
             patch(
-                "mailvalidator.cli.check_bimi", return_value=make_simple_result(BIMIResult)
+                "mailvalidator.cli.check_bimi",
+                return_value=make_simple_result(BIMIResult),
             ),
             patch("mailvalidator.cli.print_bimi"),
         ):
@@ -186,7 +189,8 @@ class TestCliCommands:
     def test_cmd_check(self):
         with (
             patch(
-                "mailvalidator.cli.assess", return_value=FullReport(domain="example.com")
+                "mailvalidator.cli.assess",
+                return_value=FullReport(domain="example.com"),
             ),
             patch("mailvalidator.cli.print_full_report"),
         ):
@@ -195,7 +199,8 @@ class TestCliCommands:
     def test_cmd_check_no_smtp_flag(self):
         with (
             patch(
-                "mailvalidator.cli.assess", return_value=FullReport(domain="example.com")
+                "mailvalidator.cli.assess",
+                return_value=FullReport(domain="example.com"),
             ) as mock,
             patch("mailvalidator.cli.print_full_report"),
         ):
@@ -205,7 +210,8 @@ class TestCliCommands:
     def test_cmd_check_no_blacklist_flag(self):
         with (
             patch(
-                "mailvalidator.cli.assess", return_value=FullReport(domain="example.com")
+                "mailvalidator.cli.assess",
+                return_value=FullReport(domain="example.com"),
             ) as mock,
             patch("mailvalidator.cli.print_full_report"),
         ):

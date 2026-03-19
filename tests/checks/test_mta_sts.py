@@ -22,7 +22,8 @@ class TestMTASTS:
         )
         with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy",
+                return_value=(policy_text, ""),
             ):
                 result = check_mta_sts("example.com")
         assert any(
@@ -43,7 +44,8 @@ class TestMTASTSExtra:
         )
         with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy",
+                return_value=(policy_text, ""),
             ):
                 with patch(
                     "mailvalidator.checks.mta_sts._parse_dns_record",
@@ -61,7 +63,8 @@ class TestMTASTSExtra:
         )
         with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy",
+                return_value=(policy_text, ""),
             ):
                 result = check_mta_sts("example.com")
         assert any(
@@ -88,7 +91,8 @@ class TestMTASTSExtra:
         )
         with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy",
+                return_value=(policy_text, ""),
             ):
                 result = check_mta_sts("example.com")
         assert any(
@@ -103,7 +107,8 @@ class TestMTASTSExtra:
         )
         with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy",
+                return_value=(policy_text, ""),
             ):
                 result = check_mta_sts("example.com")
         assert any(
@@ -118,7 +123,8 @@ class TestMTASTSExtra:
         )
         with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy",
+                return_value=(policy_text, ""),
             ):
                 result = check_mta_sts("example.com")
         assert any(
@@ -132,7 +138,8 @@ class TestMTASTSExtra:
         )
         with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy",
+                return_value=(policy_text, ""),
             ):
                 result = check_mta_sts("example.com")
         assert any(
@@ -144,7 +151,8 @@ class TestMTASTSExtra:
         policy_text = "version: STSv1\nmode: enforce\nmx: mail.example.com"
         with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy",
+                return_value=(policy_text, ""),
             ):
                 result = check_mta_sts("example.com")
         assert any(
@@ -156,7 +164,8 @@ class TestMTASTSExtra:
         policy_text = "version: STSv1\nmode: enforce\nmax_age: 604800"
         with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy",
+                return_value=(policy_text, ""),
             ):
                 result = check_mta_sts("example.com")
         assert any(
@@ -168,7 +177,8 @@ class TestMTASTSExtra:
         policy_text = "version: STSv1\nmode: enforce\nmax_age: 604800\nmx: mx1.example.com\nmx: mx2.example.com"
         with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
             with patch(
-                "mailvalidator.checks.mta_sts._fetch_policy", return_value=(policy_text, "")
+                "mailvalidator.checks.mta_sts._fetch_policy",
+                return_value=(policy_text, ""),
             ):
                 result = check_mta_sts("example.com")
         mx_check = next(c for c in result.checks if c.name == "MX Entries")

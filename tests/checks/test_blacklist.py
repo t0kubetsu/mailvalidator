@@ -25,7 +25,8 @@ class TestBlacklist:
 
     def test_listed_returns_true_for_127_0_0_2(self):
         with patch(
-            "mailvalidator.checks.blacklist.socket.gethostbyname", return_value="127.0.0.2"
+            "mailvalidator.checks.blacklist.socket.gethostbyname",
+            return_value="127.0.0.2",
         ):
             zone, listed = _check_single("1.2.3.4", "zen.spamhaus.org")
         assert listed is True
@@ -42,7 +43,8 @@ class TestBlacklist:
 
     def test_not_listed_for_127_0_0_3(self):
         with patch(
-            "mailvalidator.checks.blacklist.socket.gethostbyname", return_value="127.0.0.3"
+            "mailvalidator.checks.blacklist.socket.gethostbyname",
+            return_value="127.0.0.3",
         ):
             _, listed = _check_single("1.2.3.4", "some.dnsbl.example")
         assert listed is False

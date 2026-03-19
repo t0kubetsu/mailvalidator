@@ -4,14 +4,13 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-
 import mailvalidator.reporter as _reporter_module
 from mailvalidator.models import (
     BIMIResult,
     BlacklistResult,
     CheckResult,
-    DMARCResult,
     DKIMResult,
+    DMARCResult,
     FullReport,
     MTASTSResult,
     MXRecord,

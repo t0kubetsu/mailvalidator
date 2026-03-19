@@ -14,7 +14,9 @@ class TestMX:
             "mailvalidator.checks.mx.resolve", return_value=["10 mail.example.com."]
         ):
             with patch("mailvalidator.checks.mx.resolve_a", return_value=["1.2.3.4"]):
-                with patch("mailvalidator.checks.mx.get_authoritative_ns", return_value=[]):
+                with patch(
+                    "mailvalidator.checks.mx.get_authoritative_ns", return_value=[]
+                ):
                     result = check_mx("example.com")
         assert len(result.records) == 1
         assert result.records[0].priority == 10
@@ -31,7 +33,9 @@ class TestMX:
         records_raw = ["20 mail2.example.com.", "10 mail1.example.com."]
         with patch("mailvalidator.checks.mx.resolve", return_value=records_raw):
             with patch("mailvalidator.checks.mx.get_authoritative_ns", return_value=[]):
-                with patch("mailvalidator.checks.mx.resolve_a", return_value=["1.2.3.4"]):
+                with patch(
+                    "mailvalidator.checks.mx.resolve_a", return_value=["1.2.3.4"]
+                ):
                     result = check_mx("example.com")
         assert result.records[0].priority == 10
         assert result.records[1].priority == 20
@@ -42,7 +46,9 @@ class TestMXExtra:
         records_raw = ["10 mail.example.com.", "badentry"]
         with patch("mailvalidator.checks.mx.resolve", return_value=records_raw):
             with patch("mailvalidator.checks.mx.get_authoritative_ns", return_value=[]):
-                with patch("mailvalidator.checks.mx.resolve_a", return_value=["1.2.3.4"]):
+                with patch(
+                    "mailvalidator.checks.mx.resolve_a", return_value=["1.2.3.4"]
+                ):
                     result = check_mx("example.com")
         assert len(result.records) == 1
 
@@ -50,7 +56,9 @@ class TestMXExtra:
         records_raw = ["10 mail1.example.com.", "10 mail2.example.com."]
         with patch("mailvalidator.checks.mx.resolve", return_value=records_raw):
             with patch("mailvalidator.checks.mx.get_authoritative_ns", return_value=[]):
-                with patch("mailvalidator.checks.mx.resolve_a", return_value=["1.2.3.4"]):
+                with patch(
+                    "mailvalidator.checks.mx.resolve_a", return_value=["1.2.3.4"]
+                ):
                     result = check_mx("example.com")
         assert any(
             c.name == "Duplicate Priorities" and c.status == Status.WARNING

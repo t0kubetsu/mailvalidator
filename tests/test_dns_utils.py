@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-
-from mailvalidator.dns_utils import get_authoritative_ns, resolve, resolve_a, reverse_lookup
+from mailvalidator.dns_utils import (
+    get_authoritative_ns,
+    resolve,
+    resolve_a,
+    reverse_lookup,
+)
 
 
 class TestDnsUtils:
@@ -93,7 +97,8 @@ class TestDnsUtilsExtra:
             return r
 
         with patch(
-            "mailvalidator.dns_utils.dns.resolver.Resolver", side_effect=_patched_resolver
+            "mailvalidator.dns_utils.dns.resolver.Resolver",
+            side_effect=_patched_resolver,
         ):
             result = resolve("example.com", "TXT")
         assert isinstance(result, list)
@@ -165,7 +170,8 @@ class TestDnsUtilsRemaining:
         with patch("mailvalidator.dns_utils.dns.resolver.Resolver") as MockResolver:
             MockResolver.return_value.resolve.return_value = mock_answer
             with patch(
-                "mailvalidator.dns_utils.socket.getaddrinfo", side_effect=_fake_getaddrinfo
+                "mailvalidator.dns_utils.socket.getaddrinfo",
+                side_effect=_fake_getaddrinfo,
             ):
                 result = get_authoritative_ns("example.com")
         assert "1.2.3.4" in result

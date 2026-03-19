@@ -12,13 +12,11 @@ from __future__ import annotations
 
 import datetime as _dt
 
-
 from mailvalidator.models import (
     MXRecord,
     MXResult,
     TLSDetails,
 )
-
 
 # ---------------------------------------------------------------------------
 # TLSDetails factory
@@ -164,6 +162,7 @@ def console_capture():
     :rtype: tuple
     """
     from io import StringIO
+
     from rich.console import Console
 
     buf = StringIO()

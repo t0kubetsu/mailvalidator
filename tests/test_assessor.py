@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 from mailvalidator.assessor import _resolve_mx_ips, assess
 from mailvalidator.models import (
     BIMIResult,
-    DMARCResult,
     DKIMResult,
+    DMARCResult,
     FullReport,
     MTASTSResult,
     MXRecord,

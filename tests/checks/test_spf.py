@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-
 from mailvalidator.checks.spf import check_spf
 from mailvalidator.models import Status
 
@@ -12,7 +11,8 @@ from mailvalidator.models import Status
 class TestSPF:
     def test_fail_all_ok(self):
         with patch(
-            "mailvalidator.checks.spf.resolve", return_value=['"v=spf1 ip4:1.2.3.4 -all"']
+            "mailvalidator.checks.spf.resolve",
+            return_value=['"v=spf1 ip4:1.2.3.4 -all"'],
         ):
             result = check_spf("example.com")
         policy = next(c for c in result.checks if c.name == "SPF Policy")
@@ -62,7 +62,9 @@ class TestSPF:
         )
 
     def test_ptr_deprecation_warned(self):
-        with patch("mailvalidator.checks.spf.resolve", return_value=['"v=spf1 ptr -all"']):
+        with patch(
+            "mailvalidator.checks.spf.resolve", return_value=['"v=spf1 ptr -all"']
+        ):
             result = check_spf("example.com")
         assert any(
             c.name == "ptr Mechanism" and c.status == Status.WARNING
