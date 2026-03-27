@@ -13,7 +13,7 @@ $ mailvalidator check example.com
 ```
 
 ![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue)
-![Tests](https://img.shields.io/badge/tests-353%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-423%20passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 ![License](https://img.shields.io/badge/license-GPLv3-lightgrey)
 
@@ -303,7 +303,7 @@ pytest tests/checks/test_smtp.py
 pytest tests/checks/test_spf.py::TestSPFCoverage -v
 ```
 
-The test suite has **353 tests** and achieves **100% coverage** of all
+The test suite has **423 tests** and achieves **100% coverage** of all
 testable code. SMTP network I/O functions (`_probe_tls`, `check_smtp`, etc.)
 require a live mail server and are excluded from unit tests via
 `# pragma: no cover`; integration tests against a real server are out of
