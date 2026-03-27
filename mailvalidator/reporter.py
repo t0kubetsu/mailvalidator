@@ -29,7 +29,7 @@ from mailvalidator.models import (
     TLSRPTResult,
 )
 
-console = Console()
+console = Console(record=True)
 
 _STATUS_STYLE: dict[Status, tuple[str, str]] = {
     # Generic verdicts
@@ -78,6 +78,56 @@ def _checks_table(checks: list[CheckResult]) -> Table:
         tbl.add_row(c.name, _status_text(c.status), detail)
 
     return tbl
+
+
+_FORMAT_BY_EXT: dict[str, str] = {
+    ".txt": "text",
+    ".text": "text",
+    ".svg": "svg",
+    ".html": "html",
+    ".htm": "html",
+}
+
+
+def save_report(path: str) -> None:
+    """Save the recorded console output to *path*.
+
+    The export format is inferred from the file extension:
+
+    +------------------+--------+
+    | Extension        | Format |
+    +==================+========+
+    | ``.txt`` / ``.text`` | plain text |
+    | ``.svg``        | SVG image |
+    | ``.html`` / ``.htm`` | HTML page |
+    +------------------+--------+
+
+    Must be called **after** :func:`print_full_report` because Rich only
+    captures output when :class:`~rich.console.Console` is created with
+    ``record=True``, which is already set on the module-level
+    :data:`console` instance.
+
+    :param path: Destination file path, e.g. ``"report.svg"``.
+    :type path: str
+    :raises ValueError: If the file extension is not one of the supported
+        values listed above.
+    :raises OSError: If the file cannot be written.
+    """
+    import os
+
+    ext = os.path.splitext(path)[1].lower()
+    fmt = _FORMAT_BY_EXT.get(ext)
+    if fmt is None:
+        raise ValueError(
+            f"Unsupported export format '{ext or '(none)'}'. "
+            "Use a .txt, .svg, .html, or .htm extension."
+        )
+    if fmt == "text":
+        console.save_text(path, clear=False)
+    elif fmt == "svg":
+        console.save_svg(path, clear=False)
+    else:
+        console.save_html(path, clear=False)
 
 
 def print_mx(result: MXResult) -> None:

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 import mailvalidator.reporter as _reporter_module
 from mailvalidator.models import (
     BIMIResult,
@@ -36,6 +38,7 @@ from mailvalidator.reporter import (
     print_smtp,
     print_spf,
     print_tlsrpt,
+    save_report,
 )
 from tests.conftest import console_capture
 
@@ -346,3 +349,50 @@ class TestPrintFullReport:
         with _patch_console(con):
             print_full_report(r)
         assert "empty.example.com" in buf.getvalue()
+
+
+class TestSaveReport:
+    """Tests for :func:`~mailvalidator.reporter.save_report`."""
+
+    def _printed_report(self):
+        """Prime the console buffer with a minimal full report."""
+        r = FullReport(domain="example.com")
+        con, buf = console_capture()
+        with _patch_console(con):
+            print_full_report(r)
+
+    def test_save_text_calls_save_text(self, tmp_path):
+        dest = str(tmp_path / "report.txt")
+        with patch.object(_reporter_module, "console") as mock_con:
+            save_report(dest)
+        mock_con.save_text.assert_called_once_with(dest, clear=False)
+
+    def test_save_svg_calls_save_svg(self, tmp_path):
+        dest = str(tmp_path / "report.svg")
+        with patch.object(_reporter_module, "console") as mock_con:
+            save_report(dest)
+        mock_con.save_svg.assert_called_once_with(dest, clear=False)
+
+    def test_save_html_calls_save_html(self, tmp_path):
+        dest = str(tmp_path / "report.html")
+        with patch.object(_reporter_module, "console") as mock_con:
+            save_report(dest)
+        mock_con.save_html.assert_called_once_with(dest, clear=False)
+
+    def test_unknown_extension_raises_value_error(self, tmp_path):
+        with pytest.raises(ValueError, match="Unsupported export format"):
+            save_report(str(tmp_path / "report.pdf"))
+
+    def test_no_extension_raises_value_error(self, tmp_path):
+        with pytest.raises(ValueError, match="Unsupported export format"):
+            save_report(str(tmp_path / "report"))
+
+    def test_extension_is_case_insensitive(self, tmp_path):
+        dest = str(tmp_path / "report.TXT")
+        with patch.object(_reporter_module, "console") as mock_con:
+            save_report(dest)
+        mock_con.save_text.assert_called_once()
+
+    def test_console_has_record_enabled(self):
+        """The module-level console must be created with record=True."""
+        assert _reporter_module.console._record_buffer is not None

@@ -13,7 +13,7 @@ $ mailvalidator check example.com
 ```
 
 ![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue)
-![Tests](https://img.shields.io/badge/tests-340%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-353%20passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 ![License](https://img.shields.io/badge/license-GPLv3-lightgrey)
 
@@ -30,6 +30,7 @@ $ mailvalidator check example.com
 - [DNSBL Blacklist Check](#dnsbl-blacklist-check)
 - [Project Structure](#project-structure)
 - [Running Tests](#running-tests)
+- [Contributing](#contributing)
 
 ---
 
@@ -103,6 +104,11 @@ mailvalidator check example.com --no-dnssec
 
 # Non-standard SMTP port
 mailvalidator check example.com --smtp-port 587
+
+# Export the report to a file (.txt, .svg, or .html)
+mailvalidator check example.com --output report.txt
+mailvalidator check example.com --output report.svg
+mailvalidator check example.com --output report.html
 ```
 
 ### Individual checks
@@ -124,6 +130,12 @@ mailvalidator smtp mail.example.com --port 587
 # Blacklist check
 mailvalidator blacklist 203.0.113.42
 mailvalidator blacklist 203.0.113.42 --workers 100
+```
+
+### Version
+
+```bash
+mailvalidator --version
 ```
 
 ---
@@ -220,7 +232,7 @@ Beyond cipher grading, the SMTP check also verifies:
 
 ## DNSBL Blacklist Check
 
-104 DNS blacklist zones are queried in parallel using a
+101 DNS blacklist zones are queried in parallel using a
 `ThreadPoolExecutor`. A positive listing is confirmed only when the DNS
 response is exactly `127.0.0.2` (RFC 5782 §2.1 standard "listed" response).
 
@@ -291,11 +303,14 @@ pytest tests/checks/test_smtp.py
 pytest tests/checks/test_spf.py::TestSPFCoverage -v
 ```
 
-The test suite has **291 tests** and achieves **100% coverage** of all
+The test suite has **353 tests** and achieves **100% coverage** of all
 testable code. SMTP network I/O functions (`_probe_tls`, `check_smtp`, etc.)
 require a live mail server and are excluded from unit tests via
 `# pragma: no cover`; integration tests against a real server are out of
-scope for the unit suite.
+scope for the unit suite. DNSSEC checks call chainvalidator's `assess()`
+with all DNS I/O mocked at the boundary — no real nameserver is contacted
+during the test run. File export is tested by mocking Rich's
+`console.save_text`, `save_svg`, and `save_html` methods.
 
 ---
 

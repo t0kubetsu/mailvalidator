@@ -16,7 +16,6 @@ from mailvalidator.models import (
     DMARCResult,
     FullReport,
     MTASTSResult,
-    MXResult,
     SMTPDiagResult,
     SPFResult,
     TLSRPTResult,
@@ -245,6 +244,96 @@ class TestCliCommands:
             _runner.invoke(app, ["check", "example.com", "--no-dnssec"])
         assert mock.call_args.kwargs.get("run_dnssec") is False
 
+    def test_cmd_check_output_txt(self, tmp_path):
+        """--output FILE.txt calls save_report with the correct path."""
+        dest = str(tmp_path / "out.txt")
+        with (
+            patch(
+                "mailvalidator.cli.assess",
+                return_value=FullReport(domain="example.com"),
+            ),
+            patch("mailvalidator.cli.print_full_report"),
+            patch("mailvalidator.cli.save_report") as mock_save,
+        ):
+            result = _runner.invoke(app, ["check", "example.com", "--output", dest])
+        assert result.exit_code == 0
+        mock_save.assert_called_once_with(dest)
+
+    def test_cmd_check_output_svg(self, tmp_path):
+        dest = str(tmp_path / "out.svg")
+        with (
+            patch(
+                "mailvalidator.cli.assess",
+                return_value=FullReport(domain="example.com"),
+            ),
+            patch("mailvalidator.cli.print_full_report"),
+            patch("mailvalidator.cli.save_report") as mock_save,
+        ):
+            result = _runner.invoke(app, ["check", "example.com", "--output", dest])
+        assert result.exit_code == 0
+        mock_save.assert_called_once_with(dest)
+
+    def test_cmd_check_output_html(self, tmp_path):
+        dest = str(tmp_path / "out.html")
+        with (
+            patch(
+                "mailvalidator.cli.assess",
+                return_value=FullReport(domain="example.com"),
+            ),
+            patch("mailvalidator.cli.print_full_report"),
+            patch("mailvalidator.cli.save_report") as mock_save,
+        ):
+            result = _runner.invoke(app, ["check", "example.com", "--output", dest])
+        assert result.exit_code == 0
+        mock_save.assert_called_once_with(dest)
+
+    def test_cmd_check_output_invalid_extension_exits_1(self, tmp_path):
+        """save_report raising ValueError must exit with code 1."""
+        dest = str(tmp_path / "out.pdf")
+        with (
+            patch(
+                "mailvalidator.cli.assess",
+                return_value=FullReport(domain="example.com"),
+            ),
+            patch("mailvalidator.cli.print_full_report"),
+            patch(
+                "mailvalidator.cli.save_report",
+                side_effect=ValueError("Unsupported export format"),
+            ),
+        ):
+            result = _runner.invoke(app, ["check", "example.com", "--output", dest])
+        assert result.exit_code == 1
+
+    def test_cmd_check_output_oserror_exits_1(self, tmp_path):
+        """OSError from save_report (e.g. permission denied) must exit with code 1."""
+        dest = str(tmp_path / "out.txt")
+        with (
+            patch(
+                "mailvalidator.cli.assess",
+                return_value=FullReport(domain="example.com"),
+            ),
+            patch("mailvalidator.cli.print_full_report"),
+            patch(
+                "mailvalidator.cli.save_report",
+                side_effect=OSError("permission denied"),
+            ),
+        ):
+            result = _runner.invoke(app, ["check", "example.com", "--output", dest])
+        assert result.exit_code == 1
+
+    def test_cmd_check_no_output_does_not_call_save_report(self):
+        """When --output is omitted, save_report is never called."""
+        with (
+            patch(
+                "mailvalidator.cli.assess",
+                return_value=FullReport(domain="example.com"),
+            ),
+            patch("mailvalidator.cli.print_full_report"),
+            patch("mailvalidator.cli.save_report") as mock_save,
+        ):
+            _runner.invoke(app, ["check", "example.com"])
+        mock_save.assert_not_called()
+
 
 class TestCmdDnssec:
     def test_cmd_dnssec_no_mx(self):
@@ -267,7 +356,7 @@ class TestCmdDnssec:
 
     def test_cmd_dnssec_with_mx(self):
         """dnssec sub-command: prints both domain and MX sections when MX present."""
-        from mailvalidator.models import DNSSECResult, MXRecord
+        from mailvalidator.models import DNSSECResult, MXRecord, MXResult
 
         dnssec_result = DNSSECResult(domain="example.com")
         mx_dnssec_result = DNSSECResult(domain="example.com")

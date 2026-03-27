@@ -54,6 +54,7 @@ from mailvalidator.reporter import (
     print_smtp,
     print_spf,
     print_tlsrpt,
+    save_report,
 )
 
 # ---------------------------------------------------------------------------
@@ -194,6 +195,18 @@ def cmd_check(
         bool,
         typer.Option("--no-dnssec", help="Skip DNSSEC chain-of-trust checks."),
     ] = False,
+    output: Annotated[
+        str | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help=(
+                "Save the report to a file. "
+                "Format is inferred from the extension: "
+                ".txt for plain text, .svg for SVG, .html for HTML."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Run all mail server checks for DOMAIN and print a full report."""
     with Progress(
@@ -216,6 +229,14 @@ def cmd_check(
         )
 
     print_full_report(report)
+
+    if output:
+        try:
+            save_report(output)
+            typer.echo(f"Report saved to {output}")
+        except (ValueError, OSError) as exc:
+            typer.echo(f"Error: {exc}", err=True)
+            raise typer.Exit(code=1)
 
 
 # ---------------------------------------------------------------------------
