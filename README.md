@@ -3,7 +3,7 @@
 > Assess the complete mail security posture of any domain — from the command
 > line or as a Python library.
 
-**mailvalidator** checks MX, SPF, DMARC, DKIM, BIMI, TLSRPT, MTA-STS, SMTP
+**mailvalidator** checks MX, DNSSEC, SPF, DMARC, DKIM, BIMI, TLSRPT, MTA-STS, SMTP
 diagnostics, deep TLS inspection, and 104 DNS blacklists in a single command.
 Results are colour-coded and graded against the
 [NCSC-NL IT Security Guidelines for Transport Layer Security (TLS)](https://www.ncsc.nl/en/transport-layer-security-tls/security-guidelines-for-transport-layer-security-2025-05).
@@ -43,7 +43,7 @@ $ mailvalidator check example.com
 | **SMTP Diagnostics** | `mailvalidator smtp`      | TCP connect latency, banner, PTR record, open relay, STARTTLS                                                                                                                                                    |
 | **TLS Inspection**   | _(part of smtp)_          | TLS 1.0–1.3 version probing, 34 cipher suites graded per NCSC-NL, cipher order enforcement, key exchange (ECDHE/DHE/RSA), CRIME compression, RFC 5746 renegotiation, certificate trust chain/domain match/expiry |
 | **SPF**              | `mailvalidator spf`       | Record lookup; `all`-qualifier grading; recursive `include:`/`redirect=` resolution with per-branch visited tracking; RFC 7208 §4.6.4 DNS lookup limit (10) and void lookup limit (2); `a/cidr` and `mx/cidr` mechanism counting; `include:` qualifier surfacing; nested `+all` detection; `exp=` modifier noted; `ptr` deprecation warning |
-| **DMARC**            | `mailvalidator dmarc`     | Policy grading (none/quarantine/reject), pct, sp, rua, ruf, adkim/aspf alignment                                                                                                                                 |
+| **DMARC**            | `mailvalidator dmarc`     | Full RFC 7489 validation: policy grading, sp, pct range, adkim/aspf, fo, ri, rua/ruf scheme + mailto syntax + external destination verification (§7.1)                                                                                                                                 |
 | **DKIM**             | `mailvalidator dkim`      | Base-node (`_domainkey.<domain>`) RFC 2308 existence check                                                                                                                                                       |
 | **BIMI**             | `mailvalidator bimi`      | Record lookup, logo URL (HTTPS + SVG), VMC authority evidence                                                                                                                                                    |
 | **TLSRPT**           | `mailvalidator tlsrpt`    | RFC 8460 record lookup, rua scheme validation (mailto/HTTPS)                                                                                                                                                     |
@@ -52,27 +52,6 @@ $ mailvalidator check example.com
 | **DANE / TLSA**      | _(part of smtp)_          | TLSA existence, SHA-256/SHA-512 fingerprint match, rollover scheme                                                                                                                                               |
 | **Blacklist**        | `mailvalidator blacklist` | 104 DNSBL zones in parallel, RFC 5782 §2.1 compliant                                                                                                                                                             |
 | **Full Report**      | `mailvalidator check`     | All of the above in one command                                                                                                                                                                                  |
-
-### SPF checks in detail
-
-The SPF checker implements the full RFC 7208 evaluation model:
-
-| Check | RFC section | Details |
-| ----- | ----------- | ------- |
-| Unique record | §3.2 | Exactly one `v=spf1` TXT record required |
-| Version tag | §4.1 | Must be `v=spf1` |
-| `all` qualifier | §4.7, §5.6 | `-all` and `~all` pass; `?all` warns; `+all` errors |
-| Implicit `?all` | §4.7 | No `all` and no `redirect=` → WARNING |
-| DNS lookup limit | §4.6.4 | Total across full `include:`/`redirect=` tree ≤ 10; exceeding → ERROR |
-| Void lookup limit | §4.6.4 | DNS queries returning no records ≤ 2; exceeding → ERROR (PermError at receivers) |
-| `a/cidr` counting | §5.3 | `a/24`, `a:host/24`, `mx/24` forms correctly counted as one lookup each |
-| Independent branches | §4.6.4 | Each `include:` branch gets its own visited set; a shared sub-domain is resolved and counted once per referencing branch, not treated as a loop |
-| `redirect=` policy | §6.1 | When no explicit `all`, effective policy is sourced from the redirect target (up to two levels deep) |
-| `include:` qualifier | §5.2 | The `+`, `-`, `~`, `?` qualifier on each `include:` term is shown in the resolution tree so operators can audit its effect |
-| Nested `+all` | §5.2 | An included record containing `+all` (or bare `all`) is flagged as ERROR — it authorises every host on the Internet to match that branch |
-| `ptr` deprecation | §5.5 | WARNING if `ptr` mechanism is present |
-| `exp=` modifier | §6.2 | Noted in the resolution tree output; not counted as a DNS lookup |
-| Macros | §7 | Targets containing `%{…}` are noted but not followed |
 
 ---
 
