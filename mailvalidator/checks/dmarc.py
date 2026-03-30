@@ -18,7 +18,7 @@ Checks implemented
 * ``fo=`` forensic reporting option values (§6.4)
 * ``ri=`` reporting interval is a positive integer (§6.4)
 * ``rua=`` and ``ruf=`` URI scheme validation (``mailto:`` / ``https:``) (§6.4)
-* ``rua=`` and ``ruf=`` ``mailto:`` address syntax (§6.4, §10.1.1)
+* ``rua=`` and ``ruf=`` ``mailto:`` address syntax (§6.4, §10.1.2)
 * ``rua=`` and ``ruf=`` external destination verification DNS lookup (§7.1)
 """
 
@@ -419,7 +419,7 @@ def _check_reporting_uris(
     For each URI in the comma-separated list:
 
     1. Scheme must be ``mailto:`` or ``https:`` (§6.4).
-    2. For ``mailto:`` URIs, the address must be syntactically valid (§10.1.1).
+    2. For ``mailto:`` URIs, the address must be syntactically valid (§10.1.2).
     3. When the URI host differs from the assessed domain's organisational domain,
        the external destination verification DNS record must exist (§7.1):
        ``<assessed-domain>._report._dmarc.<report-host>`` must return a TXT
@@ -468,7 +468,7 @@ def _check_reporting_uris(
             )
             continue
 
-        # mailto: address syntax (§10.1.1)
+        # mailto: address syntax (§10.1.2)
         if scheme == "mailto":
             address = parsed.path
             if not _MAILTO_RE.match(address):
