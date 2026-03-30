@@ -13,7 +13,7 @@ $ mailvalidator check example.com
 ```
 
 ![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue)
-![Tests](https://img.shields.io/badge/tests-423%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-457%20passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 ![License](https://img.shields.io/badge/license-GPLv3-lightgrey)
 
@@ -42,7 +42,7 @@ $ mailvalidator check example.com
 | **DNSSEC**           | `mailvalidator dnssec`    | Chain-of-trust validation (Trust Anchor → `.` → TLD → domain) for the email address domain and each MX host domain; CNAME chain following; DANE prerequisite annotation (RFC 7671)                               |
 | **SMTP Diagnostics** | `mailvalidator smtp`      | TCP connect latency, banner, PTR record, open relay, STARTTLS                                                                                                                                                    |
 | **TLS Inspection**   | _(part of smtp)_          | TLS 1.0–1.3 version probing, 34 cipher suites graded per NCSC-NL, cipher order enforcement, key exchange (ECDHE/DHE/RSA), CRIME compression, RFC 5746 renegotiation, certificate trust chain/domain match/expiry |
-| **SPF**              | `mailvalidator spf`       | Record lookup, all-qualifier grading, recursive include/redirect resolution, RFC 7208 lookup-count limit                                                                                                         |
+| **SPF**              | `mailvalidator spf`       | Record lookup; `all`-qualifier grading; recursive `include:`/`redirect=` resolution with per-branch visited tracking; RFC 7208 §4.6.4 DNS lookup limit (10) and void lookup limit (2); `a/cidr` and `mx/cidr` mechanism counting; `include:` qualifier surfacing; nested `+all` detection; `exp=` modifier noted; `ptr` deprecation warning |
 | **DMARC**            | `mailvalidator dmarc`     | Policy grading (none/quarantine/reject), pct, sp, rua, ruf, adkim/aspf alignment                                                                                                                                 |
 | **DKIM**             | `mailvalidator dkim`      | Base-node (`_domainkey.<domain>`) RFC 2308 existence check                                                                                                                                                       |
 | **BIMI**             | `mailvalidator bimi`      | Record lookup, logo URL (HTTPS + SVG), VMC authority evidence                                                                                                                                                    |
@@ -52,6 +52,27 @@ $ mailvalidator check example.com
 | **DANE / TLSA**      | _(part of smtp)_          | TLSA existence, SHA-256/SHA-512 fingerprint match, rollover scheme                                                                                                                                               |
 | **Blacklist**        | `mailvalidator blacklist` | 104 DNSBL zones in parallel, RFC 5782 §2.1 compliant                                                                                                                                                             |
 | **Full Report**      | `mailvalidator check`     | All of the above in one command                                                                                                                                                                                  |
+
+### SPF checks in detail
+
+The SPF checker implements the full RFC 7208 evaluation model:
+
+| Check | RFC section | Details |
+| ----- | ----------- | ------- |
+| Unique record | §3.2 | Exactly one `v=spf1` TXT record required |
+| Version tag | §4.1 | Must be `v=spf1` |
+| `all` qualifier | §4.7, §5.6 | `-all` and `~all` pass; `?all` warns; `+all` errors |
+| Implicit `?all` | §4.7 | No `all` and no `redirect=` → WARNING |
+| DNS lookup limit | §4.6.4 | Total across full `include:`/`redirect=` tree ≤ 10; exceeding → ERROR |
+| Void lookup limit | §4.6.4 | DNS queries returning no records ≤ 2; exceeding → ERROR (PermError at receivers) |
+| `a/cidr` counting | §5.3 | `a/24`, `a:host/24`, `mx/24` forms correctly counted as one lookup each |
+| Independent branches | §4.6.4 | Each `include:` branch gets its own visited set; a shared sub-domain is resolved and counted once per referencing branch, not treated as a loop |
+| `redirect=` policy | §6.1 | When no explicit `all`, effective policy is sourced from the redirect target (up to two levels deep) |
+| `include:` qualifier | §5.2 | The `+`, `-`, `~`, `?` qualifier on each `include:` term is shown in the resolution tree so operators can audit its effect |
+| Nested `+all` | §5.2 | An included record containing `+all` (or bare `all`) is flagged as ERROR — it authorises every host on the Internet to match that branch |
+| `ptr` deprecation | §5.5 | WARNING if `ptr` mechanism is present |
+| `exp=` modifier | §6.2 | Noted in the resolution tree output; not counted as a DNS lookup |
+| Macros | §7 | Targets containing `%{…}` are noted but not followed |
 
 ---
 
@@ -303,7 +324,7 @@ pytest tests/checks/test_smtp.py
 pytest tests/checks/test_spf.py::TestSPFCoverage -v
 ```
 
-The test suite has **423 tests** and achieves **100% coverage** of all
+The test suite has **457 tests** and achieves **100% coverage** of all
 testable code. SMTP network I/O functions (`_probe_tls`, `check_smtp`, etc.)
 require a live mail server and are excluded from unit tests via
 `# pragma: no cover`; integration tests against a real server are out of
