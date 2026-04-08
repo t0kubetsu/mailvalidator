@@ -651,15 +651,24 @@ Two runtime escalation rules override the static severity table:
 
 ## Reading the verdict panel
 
+The panel title encodes the grade letter and rationale.
+The table inside lists every action item sorted from most to least urgent
+(`CRITICAL` → `HIGH` → `MEDIUM`).
+
 ```
-╭─ Security Verdict ──────────────────────────────────────────────╮
-│  CRITICAL  Fix SPF Record: No SPF record found                  │
-│  HIGH      Review Policy (p=): p=none — no enforcement          │
-│  MEDIUM    Fix TLSRPT Record: record not found                  │
-│                                                                  │
-│  Grade: C  ·  38 penalty points  ·  1 critical, 1 high, 1 medium│
-╰──────────────────────────────────────────────────────────────────╯
+╭─── Security Verdict  C  1 critical, 1 high, 1 medium issue(s) found (38 penalty point(s)). ───╮
+│                                                                                                 │
+│   Priority     Action                                                                           │
+│  ───────────────────────────────────────────────────────────────────────────────────────────   │
+│   CRITICAL     Fix SPF Record: No SPF record found at example.com.                             │
+│   HIGH         Review Policy (p=): p=none — DMARC is in monitoring mode only, no enforcement.  │
+│   MEDIUM       Fix TLSRPT Record: No TLSRPT record found at _smtp._tls.example.com.            │
+│                                                                                                 │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
+
+The panel border colour reflects the grade: bright green for A+/A, yellow for B/C,
+red for D, bright red for F.
 
 Action verbs indicate the type of issue:
 
