@@ -85,7 +85,7 @@ pytest tests/checks/test_spf.py -v
 
 - Test runner: `pytest` (auto-configured via `pyproject.toml`)
 - Coverage flag already wired: `--cov=mailvalidator --cov-report=term-missing`
-- **Current state: 639 tests, 100% coverage** across all 18 modules (1 820 statements)
+- **Current state: 652 tests, 100% coverage** across all 18 modules (1 893 statements)
 - Shared fixtures in `tests/conftest.py` — use `make_tls()`, `make_mx_result()`,
   `console_capture()`, `make_simple_result()`, `make_rsa_cert_der()`,
   `make_ec_cert_der()` rather than building objects by hand
@@ -103,6 +103,40 @@ pytest tests/checks/test_spf.py -v
 - Input validation lives in `cli.py` (`_validate_domain`, `_validate_host`, `_validate_ip`)
 - `resolve()` from `dns_utils` is the single DNS abstraction; patch it in tests
 - No CI config currently present
+
+## Before Every Commit
+
+Run these checks and update these files as needed — do not skip any step:
+
+```bash
+# 1. Verify tests pass and coverage is still 100%
+pytest
+```
+
+If the test count or statement count changed, update **all three** occurrences in `README.md`:
+- Line ~17: badge `![Tests](https://img.shields.io/badge/tests-NNN%20passing-brightgreen)`
+- "The test suite has **NNN tests**…" paragraph (Running Tests section)
+- "confirm all NNN tests pass" line (Contributing section)
+
+Also update the count in this file (`CLAUDE.md`) under "Current state".
+
+```bash
+# 2. Check for lint issues
+ruff check mailvalidator/
+```
+
+Fix any F401 (unused import) or other errors before committing.
+
+## Version Bumping
+
+When committing a set of changes, bump the version using semver:
+- **patch** (`0.1.x`) — bug fixes, RFC compliance fixes, lint/refactor, docs
+- **minor** (`0.x.0`) — new checks, new CLI commands, new features
+- **major** (`x.0.0`) — breaking API changes
+
+Two files must always be updated together:
+- `pyproject.toml` → `version = "x.y.z"`
+- `mailvalidator/__init__.py` → fallback `__version__ = "x.y.z"` (the `except` branch)
 
 ## Where to Look
 
