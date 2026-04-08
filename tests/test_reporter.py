@@ -25,6 +25,7 @@ from mailvalidator.models import (
 )
 from mailvalidator.reporter import (
     _checks_table,
+    _grade_text,
     _status_text,
     print_bimi,
     print_blacklist,
@@ -41,7 +42,7 @@ from mailvalidator.reporter import (
     print_verdict,
     save_report,
 )
-from mailvalidator.verdict import VerdictAction, VerdictSeverity
+from mailvalidator.verdict import Grade, VerdictAction, VerdictSeverity
 from tests.conftest import console_capture
 
 
@@ -461,7 +462,8 @@ class TestPrintVerdict:
             print_full_report(r)
         assert "Security Verdict" in buf.getvalue()
 
-    def test_verdict_not_shown_in_full_report_when_all_pass(self):
+    def test_verdict_shown_in_full_report_when_all_pass(self):
+        # Grade panel is always shown (with A+ when no issues)
         r = FullReport(domain="example.com")
         spf = SPFResult(domain="example.com")
         spf.checks = [CheckResult(name="SPF Record", status=Status.OK, value="v=spf1 -all")]
@@ -469,7 +471,70 @@ class TestPrintVerdict:
         con, buf = console_capture()
         with _patch_console(con):
             print_full_report(r)
-        assert "Security Verdict" not in buf.getvalue()
+        assert "Security Verdict" in buf.getvalue()
+
+    def test_grade_shown_in_panel_when_provided(self):
+        grade = Grade(letter="A+", penalty=0, rationale="No issues found.")
+        con, buf = console_capture()
+        with _patch_console(con):
+            print_verdict([], grade=grade)
+        assert "A+" in buf.getvalue()
+
+    def test_grade_rationale_shown_when_provided(self):
+        grade = Grade(letter="F", penalty=50, rationale="2 critical issue(s) found (50 penalty point(s)).")
+        con, buf = console_capture()
+        with _patch_console(con):
+            print_verdict([self._action(VerdictSeverity.CRITICAL)], grade=grade)
+        assert "50" in buf.getvalue()
+
+    def test_no_grade_still_renders_panel(self):
+        con, buf = console_capture()
+        with _patch_console(con):
+            print_verdict([self._action(VerdictSeverity.HIGH)], grade=None)
+        assert "Security Verdict" in buf.getvalue()
+
+    def test_full_report_grade_a_plus_when_all_pass(self):
+        r = FullReport(domain="example.com")
+        con, buf = console_capture()
+        with _patch_console(con):
+            print_full_report(r)
+        assert "A+" in buf.getvalue()
+
+    def test_full_report_shows_grade_when_issues_exist(self):
+        r = FullReport(domain="example.com")
+        spf = SPFResult(domain="example.com")
+        spf.checks = [CheckResult(name="SPF Record", status=Status.NOT_FOUND)]
+        r.spf = spf
+        con, buf = console_capture()
+        with _patch_console(con):
+            print_full_report(r)
+        output = buf.getvalue()
+        # With a missing SPF record (CRITICAL), grade should not be A+
+        assert "A+" not in output
+
+
+class TestGradeText:
+    """Tests for :func:`~mailvalidator.reporter._grade_text`."""
+
+    def test_a_plus_contains_letter(self):
+        g = Grade(letter="A+", penalty=0, rationale="")
+        assert "A+" in _grade_text(g).plain
+
+    def test_f_contains_letter(self):
+        g = Grade(letter="F", penalty=50, rationale="")
+        assert "F" in _grade_text(g).plain
+
+    def test_all_known_grades_have_style(self):
+        from mailvalidator.reporter import _GRADE_STYLE
+        for letter in ("A+", "A", "B", "C", "D", "F"):
+            g = Grade(letter=letter, penalty=0, rationale="")
+            t = _grade_text(g)
+            assert t.plain == letter
+
+    def test_unknown_grade_falls_back(self):
+        g = Grade(letter="Z", penalty=0, rationale="")
+        t = _grade_text(g)
+        assert "Z" in t.plain
 
 
 class TestSaveReport:

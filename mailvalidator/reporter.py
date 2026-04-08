@@ -28,7 +28,13 @@ from mailvalidator.models import (
     Status,
     TLSRPTResult,
 )
-from mailvalidator.verdict import VerdictAction, VerdictSeverity, extract_verdict_actions
+from mailvalidator.verdict import (
+    Grade,
+    VerdictAction,
+    VerdictSeverity,
+    calculate_grade,
+    extract_verdict_actions,
+)
 
 console = Console(record=True)
 
@@ -307,35 +313,69 @@ def print_dnssec_mx(result: DNSSECResult) -> None:
     console.print(_checks_table(result.checks))
 
 
-def print_verdict(actions: list[VerdictAction]) -> None:
+_GRADE_STYLE: dict[str, tuple[str, str]] = {
+    "A+": ("bold bright_green", "A+"),
+    "A": ("bold green", "A"),
+    "B": ("bold yellow", "B"),
+    "C": ("bold dark_orange", "C"),
+    "D": ("bold orange_red1", "D"),
+    "F": ("bold red", "F"),
+}
+
+
+def _grade_text(grade: Grade) -> Text:
+    """Return a styled Rich :class:`~rich.text.Text` for *grade*.
+
+    :param grade: Grade produced by :func:`~mailvalidator.verdict.calculate_grade`.
+    :returns: Styled text showing the letter grade.
+    :rtype: ~rich.text.Text
+    """
+    style, label = _GRADE_STYLE.get(grade.letter, ("bold magenta", grade.letter))
+    return Text(label, style=style)
+
+
+def print_verdict(actions: list[VerdictAction], grade: Grade | None = None) -> None:
     """Render the prioritised security verdict panel to the terminal.
 
     Displays a colour-coded table of actionable items sorted from most to
-    least urgent (``CRITICAL`` → ``HIGH`` → ``MEDIUM``).  Called by
-    :func:`print_full_report` when there is at least one action to show.
+    least urgent (``CRITICAL`` → ``HIGH`` → ``MEDIUM``).  When *grade* is
+    provided the panel header also shows the letter grade and rationale.
+    Called by :func:`print_full_report`.
 
     :param actions: Deduplicated, severity-sorted action list from
         :func:`~mailvalidator.verdict.extract_verdict_actions`.
     :type actions: list[~mailvalidator.verdict.VerdictAction]
+    :param grade: Optional grade computed by
+        :func:`~mailvalidator.verdict.calculate_grade`.
+    :type grade: ~mailvalidator.verdict.Grade or None
     """
     _SEV_STYLE: dict[VerdictSeverity, tuple[str, str]] = {
         VerdictSeverity.CRITICAL: ("bold red", "✘ CRITICAL"),
         VerdictSeverity.HIGH: ("bold yellow", "⚠ HIGH"),
         VerdictSeverity.MEDIUM: ("bold cyan", "· MEDIUM"),
     }
+
+    if grade is not None:
+        grade_t = _grade_text(grade)
+        header = Text.assemble(
+            Text("Security Verdict", style="bold red"),
+            Text(" – Grade: "),
+            grade_t,
+            Text(f"  ({grade.rationale})", style="dim"),
+        )
+    else:
+        header = Text("Security Verdict – Prioritised Actions", style="bold red")
+
     tbl = Table(show_header=True, header_style="bold red", expand=True, padding=(0, 1))
     tbl.add_column("Priority", justify="center", no_wrap=True)
     tbl.add_column("Action")
     for action in actions:
         style, label = _SEV_STYLE[action.severity]
         tbl.add_row(Text(label, style=style), action.text)
-    console.print(
-        Panel(
-            "[bold red]Security Verdict[/bold red] – Prioritised Actions",
-            style="red",
-        )
-    )
-    console.print(tbl)
+
+    console.print(Panel(header, style="red"))
+    if actions:
+        console.print(tbl)
 
 
 def print_full_report(report: FullReport) -> None:
@@ -371,7 +411,7 @@ def print_full_report(report: FullReport) -> None:
         print_blacklist(report.blacklist)
 
     actions = extract_verdict_actions(report)
-    if actions:
-        print_verdict(actions)
+    grade = calculate_grade(actions)
+    print_verdict(actions, grade)
 
     console.rule("[dim]End of Report[/dim]")

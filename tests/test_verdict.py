@@ -20,6 +20,7 @@ from mailvalidator.models import (
     TLSRPTResult,
 )
 from mailvalidator.verdict import (
+    Grade,
     VerdictAction,
     VerdictSeverity,
     _collect_checks,
@@ -27,6 +28,7 @@ from mailvalidator.verdict import (
     _deduplicate_actions,
     _format_verdict_text,
     _lookup_priority,
+    calculate_grade,
     extract_verdict_actions,
 )
 
@@ -536,3 +538,119 @@ class TestExtractVerdictActions:
         r.blacklist = bl
         actions = extract_verdict_actions(r)
         assert any(a.check_name == "Blacklist Status" for a in actions)
+
+
+# ---------------------------------------------------------------------------
+# calculate_grade
+# ---------------------------------------------------------------------------
+
+
+def _action(severity: VerdictSeverity) -> VerdictAction:
+    return VerdictAction(text="action", severity=severity, check_name="Check")
+
+
+class TestCalculateGrade:
+    def test_no_actions_is_a_plus(self):
+        g = calculate_grade([])
+        assert g.letter == "A+"
+        assert g.penalty == 0
+
+    def test_no_actions_rationale_mentions_no_issues(self):
+        g = calculate_grade([])
+        assert "No issues" in g.rationale
+
+    def test_one_medium_is_a_plus(self):
+        # 3 penalty points → still 0 threshold? No: threshold is 0 exactly for A+.
+        # 3 > 0 so it falls into A (1–10).
+        g = calculate_grade([_action(VerdictSeverity.MEDIUM)])
+        assert g.letter == "A"
+        assert g.penalty == 3
+
+    def test_one_high_is_a(self):
+        g = calculate_grade([_action(VerdictSeverity.HIGH)])
+        assert g.letter == "A"
+        assert g.penalty == 10
+
+    def test_two_highs_is_b(self):
+        # 20 penalty points → B (11–20)
+        g = calculate_grade([_action(VerdictSeverity.HIGH), _action(VerdictSeverity.HIGH)])
+        assert g.letter == "B"
+        assert g.penalty == 20
+
+    def test_one_critical_is_c(self):
+        # 25 penalty points → C (21–30)
+        g = calculate_grade([_action(VerdictSeverity.CRITICAL)])
+        assert g.letter == "C"
+        assert g.penalty == 25
+
+    def test_one_critical_one_high_is_d(self):
+        # 35 penalty points → D (31–40)
+        g = calculate_grade([_action(VerdictSeverity.CRITICAL), _action(VerdictSeverity.HIGH)])
+        assert g.letter == "D"
+        assert g.penalty == 35
+
+    def test_two_criticals_is_f(self):
+        # 50 penalty points → F (> 40)
+        g = calculate_grade([_action(VerdictSeverity.CRITICAL), _action(VerdictSeverity.CRITICAL)])
+        assert g.letter == "F"
+        assert g.penalty == 50
+
+    def test_boundary_a_plus_exactly_zero(self):
+        g = calculate_grade([])
+        assert g.letter == "A+"
+
+    def test_boundary_a_max(self):
+        # 10 penalty points is still A (1–10)
+        g = calculate_grade([_action(VerdictSeverity.HIGH)])
+        assert g.letter == "A"
+
+    def test_boundary_b_min(self):
+        # 11 penalty points → B (11–20)
+        actions = [_action(VerdictSeverity.HIGH), _action(VerdictSeverity.MEDIUM)]
+        g = calculate_grade(actions)
+        assert g.penalty == 13
+        assert g.letter == "B"
+
+    def test_boundary_d_max(self):
+        # 40 penalty points → D (31–40): 1 critical (25) + 1 high (10) + 1 medium (3) + 1 medium (3) - wait
+        # Let's do: 1 critical (25) + 3 medium (9) = 34 → D; or 4 high (40) → D
+        actions = [_action(VerdictSeverity.HIGH)] * 4
+        g = calculate_grade(actions)
+        assert g.penalty == 40
+        assert g.letter == "D"
+
+    def test_boundary_f_min(self):
+        # 41 penalty points → F (> 40)
+        # 1 critical (25) + 1 high (10) + 2 medium (6) = 41
+        actions = [
+            _action(VerdictSeverity.CRITICAL),
+            _action(VerdictSeverity.HIGH),
+            _action(VerdictSeverity.MEDIUM),
+            _action(VerdictSeverity.MEDIUM),
+        ]
+        g = calculate_grade(actions)
+        assert g.penalty == 41
+        assert g.letter == "F"
+
+    def test_rationale_mentions_critical_count(self):
+        g = calculate_grade([_action(VerdictSeverity.CRITICAL)])
+        assert "critical" in g.rationale
+
+    def test_rationale_mentions_high_count(self):
+        g = calculate_grade([_action(VerdictSeverity.HIGH)])
+        assert "high" in g.rationale
+
+    def test_rationale_mentions_medium_count(self):
+        g = calculate_grade([_action(VerdictSeverity.MEDIUM)])
+        assert "medium" in g.rationale
+
+    def test_rationale_includes_penalty_points(self):
+        g = calculate_grade([_action(VerdictSeverity.HIGH)])
+        assert "10" in g.rationale
+
+    def test_grade_is_dataclass(self):
+        g = calculate_grade([])
+        assert isinstance(g, Grade)
+        assert hasattr(g, "letter")
+        assert hasattr(g, "penalty")
+        assert hasattr(g, "rationale")

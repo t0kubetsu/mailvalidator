@@ -139,6 +139,110 @@ _SEVERITY_ORDER: dict[VerdictSeverity, int] = {
     VerdictSeverity.MEDIUM: 2,
 }
 
+# Penalty points added per action (penalty-based: 0 = perfect).
+_PENALTY: dict[VerdictSeverity, int] = {
+    VerdictSeverity.CRITICAL: 25,
+    VerdictSeverity.HIGH: 10,
+    VerdictSeverity.MEDIUM: 3,
+}
+
+# Penalty thresholds for each letter grade (upper bound, exclusive).
+# 0       → A+   (perfect)
+# 1–10    → A
+# 11–20   → B
+# 21–30   → C
+# 31–40   → D
+# > 40    → F
+_GRADE_THRESHOLDS: list[tuple[int, str]] = [
+    (0, "A+"),
+    (10, "A"),
+    (20, "B"),
+    (30, "C"),
+    (40, "D"),
+]
+
+
+@dataclass
+class Grade:
+    """Letter grade summarising the overall security posture of a mail server.
+
+    Computed by :func:`calculate_grade` from the list of
+    :class:`VerdictAction` items produced by :func:`extract_verdict_actions`.
+    The grading system uses an **penalty-point** model: zero points means a
+    perfect configuration (A+) and points accumulate as issues are found.
+
+    :param letter: Letter grade (``"A+"`` through ``"F"``).
+    :param penalty: Total penalty points (0 = perfect).
+    :param rationale: Human-readable explanation of the grade.
+    """
+
+    letter: str
+    penalty: int
+    rationale: str
+
+
+def calculate_grade(actions: list[VerdictAction]) -> Grade:
+    """Calculate the overall security grade from a list of verdict actions.
+
+    Uses a **penalty-point** model: start at 0 (perfect) and accumulate points
+    for each outstanding issue.  Lower is better.
+
+    Penalty weights:
+
+    * ``CRITICAL`` → 25 points
+    * ``HIGH`` → 10 points
+    * ``MEDIUM`` → 3 points
+
+    Grade thresholds:
+
+    +------------------+-------+
+    | Penalty points   | Grade |
+    +==================+=======+
+    | 0                | A+    |
+    +------------------+-------+
+    | 1–10             | A     |
+    +------------------+-------+
+    | 11–20            | B     |
+    +------------------+-------+
+    | 21–30            | C     |
+    +------------------+-------+
+    | 31–40            | D     |
+    +------------------+-------+
+    | > 40             | F     |
+    +------------------+-------+
+
+    :param actions: Deduplicated, severity-sorted list from
+        :func:`extract_verdict_actions`.
+    :type actions: list[VerdictAction]
+    :returns: Grade with letter, penalty points, and rationale.
+    :rtype: Grade
+    """
+    penalty = sum(_PENALTY[a.severity] for a in actions)
+
+    letter = "F"
+    for threshold, grade_letter in _GRADE_THRESHOLDS:
+        if penalty <= threshold:
+            letter = grade_letter
+            break
+
+    n_critical = sum(1 for a in actions if a.severity is VerdictSeverity.CRITICAL)
+    n_high = sum(1 for a in actions if a.severity is VerdictSeverity.HIGH)
+    n_medium = sum(1 for a in actions if a.severity is VerdictSeverity.MEDIUM)
+
+    if penalty == 0:
+        rationale = "No issues found — mail server configuration is excellent."
+    else:
+        parts: list[str] = []
+        if n_critical:
+            parts.append(f"{n_critical} critical")
+        if n_high:
+            parts.append(f"{n_high} high")
+        if n_medium:
+            parts.append(f"{n_medium} medium")
+        rationale = f"{', '.join(parts)} issue(s) found ({penalty} penalty point(s))."
+
+    return Grade(letter=letter, penalty=penalty, rationale=rationale)
+
 
 def _lookup_priority(check_name: str) -> VerdictSeverity | None:
     """Return the verdict severity for *check_name*, or ``None`` to skip it.
