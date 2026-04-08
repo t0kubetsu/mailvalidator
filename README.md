@@ -14,7 +14,7 @@ $ mailvalidator check example.com
 ```
 
 ![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue)
-![Tests](https://img.shields.io/badge/tests-639%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-652%20passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 ![License](https://img.shields.io/badge/license-GPLv3-lightgrey)
 
@@ -385,7 +385,7 @@ pytest tests/checks/test_smtp.py -v
 pytest tests/checks/test_spf.py::TestSPFCoverage -v
 ```
 
-The test suite has **639 tests** and achieves **100% coverage** (1 820
+The test suite has **652 tests** and achieves **100% coverage** (1 893
 statements) across all modules. Coverage reporting is pre-configured in
 `pyproject.toml` — no extra flags needed.
 
@@ -403,7 +403,7 @@ export is tested by mocking Rich's `console.save_text`, `save_svg`, and
 
 1. Fork the repository and create a feature branch.
 2. Add or update tests — the project targets 100% unit test coverage.
-3. Run `pytest` and confirm all 639 tests pass before opening a pull request.
+3. Run `pytest` and confirm all 652 tests pass before opening a pull request.
 4. Follow the existing docstring format (reStructuredText / docutils field lists).
 5. Use [conventional commits](https://www.conventionalcommits.org/):
    `fix:`, `feat:`, `refactor:`, `test:`, `docs:`, `chore:`

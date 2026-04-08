@@ -171,6 +171,31 @@ class TestMTASTSExtra:
         assert "mx1.example.com" in mx_check.value
         assert "mx2.example.com" in mx_check.value
 
+    def test_duplicate_mx_entries_warns(self):
+        dns_record = '"v=STSv1; id=20240101T000000"'
+        policy = "version: STSv1\nmode: enforce\nmax_age: 604800\nmx: mx1.example.com\nmx: mx1.example.com"
+        with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
+            with patch(
+                "mailvalidator.checks.mta_sts._fetch_policy",
+                return_value=(policy, "text/plain", ""),
+            ):
+                result = check_mta_sts("example.com")
+        mx_check = next(c for c in result.checks if c.name == "MX Entries")
+        assert mx_check.status == Status.WARNING
+        assert any("duplicate" in d.lower() for d in (mx_check.details or []))
+
+    def test_no_duplicate_mx_entries_ok(self):
+        dns_record = '"v=STSv1; id=20240101T000000"'
+        policy = "version: STSv1\nmode: enforce\nmax_age: 604800\nmx: mx1.example.com\nmx: mx2.example.com"
+        with patch("mailvalidator.checks.mta_sts.resolve", return_value=[dns_record]):
+            with patch(
+                "mailvalidator.checks.mta_sts._fetch_policy",
+                return_value=(policy, "text/plain", ""),
+            ):
+                result = check_mta_sts("example.com")
+        mx_check = next(c for c in result.checks if c.name == "MX Entries")
+        assert mx_check.status == Status.OK
+
 
 class TestMTASTSCoverage:
     def test_parse_policy_file_multi_mx(self):

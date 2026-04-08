@@ -96,6 +96,7 @@ def check_dmarc(domain: str) -> DMARCResult:
         CheckResult(name="DMARC Record", status=Status.OK, details=[record])
     )
 
+    _check_duplicate_tags(record, result)
     tags = _parse_tags(record)
     _validate(tags, domain, record, result)
     return result
@@ -104,6 +105,39 @@ def check_dmarc(domain: str) -> DMARCResult:
 # ---------------------------------------------------------------------------
 # Parsing
 # ---------------------------------------------------------------------------
+
+
+def _check_duplicate_tags(record: str, result: DMARCResult) -> None:
+    """Emit a WARNING if any tag appears more than once in *record*.
+
+    RFC 7489 §6.3 states that a tag MUST NOT appear more than once in a
+    DMARC record.  Duplicate tags are undefined behaviour; receivers may
+    use the first value, the last value, or reject the record outright.
+
+    :param record: Raw DMARC TXT record value.
+    :type record: str
+    :param result: Result object to which a check item is appended when
+        duplicates are found.
+    :type result: DMARCResult
+    """
+    seen: dict[str, int] = {}
+    for part in re.split(r"\s*;\s*", record):
+        if "=" in part:
+            k = part.partition("=")[0].strip()
+            seen[k] = seen.get(k, 0) + 1
+    dups = [k for k, count in seen.items() if count > 1]
+    if dups:
+        result.checks.append(
+            CheckResult(
+                name="DMARC Record",
+                status=Status.WARNING,
+                details=[
+                    f"Duplicate tag(s) found: {', '.join(sorted(dups))}. "
+                    "RFC 7489 §6.3 requires each tag to appear at most once; "
+                    "behaviour is undefined when duplicates are present."
+                ],
+            )
+        )
 
 
 def _parse_tags(record: str) -> dict[str, str]:

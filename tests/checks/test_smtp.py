@@ -1751,9 +1751,9 @@ class TestCheckDaneRfcCompliance:
             )
         assert not any(c.name == "DANE – Matching Type" for c in checks)
 
-    # D6: DNSSEC prerequisite INFO note always present when TLSA records exist
-    def test_dnssec_prerequisite_info_present(self):
-        """D6: When TLSA records are found, a DNSSEC prerequisite note must appear."""
+    # D6: DNSSEC prerequisite WARNING always present when TLSA records exist
+    def test_dnssec_prerequisite_warning_present(self):
+        """D6: When TLSA records are found, a DNSSEC prerequisite WARNING must appear."""
         import hashlib
 
         der = self._make_cert_der()
@@ -1765,7 +1765,7 @@ class TestCheckDaneRfcCompliance:
                 "mail.example.com", 25, "mailvalidator.local", None, der, checks
             )
         assert any(
-            c.name == "DANE – DNSSEC Prerequisite" and c.status == Status.INFO
+            c.name == "DANE – DNSSEC Prerequisite" and c.status == Status.WARNING
             for c in checks
         )
 

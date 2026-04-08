@@ -42,15 +42,37 @@ def check_mx(domain: str) -> MXResult:
         return result
 
     records: list[MXRecord] = []
+    invalid_priorities: list[str] = []
     for entry in raw_mx:
         # entry format: "<priority> <exchange>"
         parts = entry.split()
         if len(parts) != 2:
             continue
-        priority = int(parts[0])
+        try:
+            priority = int(parts[0])
+        except ValueError:
+            invalid_priorities.append(parts[0])
+            continue
+        # RFC 974 / RFC 5321: priority is a 16-bit unsigned integer (0–65535).
+        if priority < 0 or priority > 65535:
+            invalid_priorities.append(str(priority))
+            continue
         exchange = parts[1].rstrip(".")
         ips = resolve_a(exchange)
         records.append(MXRecord(priority=priority, exchange=exchange, ip_addresses=ips))
+
+    if invalid_priorities:
+        result.checks.append(
+            CheckResult(
+                name="MX Records",
+                status=Status.ERROR,
+                details=[
+                    f"Invalid MX priority value(s): {', '.join(invalid_priorities)}. "
+                    "RFC 5321 requires a 16-bit unsigned integer (0–65535)."
+                ],
+            )
+        )
+        return result
 
     records.sort(key=lambda r: r.priority)
     result.records = records

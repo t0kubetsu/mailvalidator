@@ -62,7 +62,12 @@ def check_dkim(domain: str) -> DKIMResult:
                 name="DKIM Base Node",
                 status=Status.OK,
                 value=base_node,
-                details=[f"{base_node} answered NOERROR (RFC 2308-conformant)."],
+                details=[
+                    f"{base_node} answered NOERROR (RFC 2308-conformant).",
+                    "Note: this confirms DNS infrastructure is DKIM-ready. "
+                    "It does not verify that any selector record exists — "
+                    "use 'dig <selector>._domainkey.<domain> TXT' to check a specific selector.",
+                ],
             )
         )
 

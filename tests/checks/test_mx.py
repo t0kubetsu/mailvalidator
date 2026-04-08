@@ -64,3 +64,30 @@ class TestMXExtra:
             c.name == "Duplicate Priorities" and c.status == Status.WARNING
             for c in result.checks
         )
+
+    def test_non_integer_priority_error(self):
+        records_raw = ["abc mail.example.com."]
+        with patch("mailvalidator.checks.mx.resolve", return_value=records_raw):
+            with patch("mailvalidator.checks.mx.get_authoritative_ns", return_value=[]):
+                result = check_mx("example.com")
+        assert any(c.status == Status.ERROR for c in result.checks)
+        assert any(
+            "abc" in (d or "") for c in result.checks for d in (c.details or [])
+        )
+
+    def test_out_of_range_priority_error(self):
+        records_raw = ["65536 mail.example.com."]
+        with patch("mailvalidator.checks.mx.resolve", return_value=records_raw):
+            with patch("mailvalidator.checks.mx.get_authoritative_ns", return_value=[]):
+                result = check_mx("example.com")
+        assert any(c.status == Status.ERROR for c in result.checks)
+        assert any(
+            "65536" in (d or "") for c in result.checks for d in (c.details or [])
+        )
+
+    def test_negative_priority_error(self):
+        records_raw = ["-1 mail.example.com."]
+        with patch("mailvalidator.checks.mx.resolve", return_value=records_raw):
+            with patch("mailvalidator.checks.mx.get_authoritative_ns", return_value=[]):
+                result = check_mx("example.com")
+        assert any(c.status == Status.ERROR for c in result.checks)

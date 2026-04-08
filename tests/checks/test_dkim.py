@@ -23,3 +23,14 @@ class TestDKIM:
             c.name == "DKIM Base Node" and c.status == Status.ERROR
             for c in result.checks
         )
+
+    def test_base_node_ok_includes_selector_caveat(self):
+        """OK result must include a caveat that selectors are not verified."""
+        with patch("mailvalidator.checks.dkim.resolve", return_value=[]):
+            result = check_dkim("example.com")
+        ok_check = next(
+            c for c in result.checks
+            if c.name == "DKIM Base Node" and c.status == Status.OK
+        )
+        assert any("selector" in d.lower() for d in (ok_check.details or []))
+

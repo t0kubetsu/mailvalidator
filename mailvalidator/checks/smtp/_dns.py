@@ -385,14 +385,19 @@ def _check_dane(
         )
     )
 
-    # D6: DNSSEC is a prerequisite for DANE security (RFC 6698 §1).
+    # D6: DNSSEC is a hard prerequisite for DANE security (RFC 6698 §1).
+    # Without a valid DNSSEC chain the TLSA records cannot be trusted, so an
+    # attacker could substitute them.  We always emit this as WARNING to
+    # remind operators to check DNSSEC even when we cannot verify it here.
     checks.append(
         CheckResult(
             name="DANE – DNSSEC Prerequisite",
-            status=Status.INFO,
+            status=Status.WARNING,
             details=[
-                "DANE security depends entirely on the TLSA record being DNSSEC-signed "
-                "(RFC 6698 §1). Verify that DNSSEC is enabled and validated for this zone."
+                "DANE security requires a valid DNSSEC chain over the TLSA record "
+                "(RFC 6698 §1). Without DNSSEC an attacker can substitute TLSA records, "
+                "making DANE protection ineffective. Ensure DNSSEC is enabled and "
+                "fully validated for this zone before relying on DANE."
             ],
         )
     )

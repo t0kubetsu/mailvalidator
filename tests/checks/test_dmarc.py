@@ -652,3 +652,38 @@ class TestCheckDmarc:
             "Aggregate Reports" in c.name and c.status == Status.WARNING
             for c in result.checks
         )
+
+    # ── duplicate tags ────────────────────────────────────────────────────────
+
+    def test_duplicate_tag_warning(self):
+        """RFC 7489 §6.3: duplicate tags in a DMARC record must produce a WARNING."""
+        with self._resolve('"v=DMARC1; p=reject; p=none; rua=mailto:dmarc@example.com"'):
+            result = check_dmarc("example.com")
+        assert any(
+            c.name == "DMARC Record" and c.status == Status.WARNING
+            and "Duplicate tag" in (c.details[0] if c.details else "")
+            for c in result.checks
+        )
+
+    def test_no_duplicate_tag_no_warning(self):
+        """No duplicate-tag warning when all tags are unique."""
+        with self._resolve('"v=DMARC1; p=reject; rua=mailto:dmarc@example.com"'):
+            result = check_dmarc("example.com")
+        assert not any(
+            c.name == "DMARC Record" and c.status == Status.WARNING
+            and "Duplicate tag" in (c.details[0] if c.details else "")
+            for c in result.checks
+        )
+
+    def test_multiple_duplicate_tags_listed(self):
+        """Multiple duplicate tags are all listed in the warning detail."""
+        with self._resolve('"v=DMARC1; p=reject; p=none; rua=mailto:a@example.com; rua=mailto:b@example.com"'):
+            result = check_dmarc("example.com")
+        dup_warnings = [
+            c for c in result.checks
+            if c.name == "DMARC Record" and c.status == Status.WARNING
+            and "Duplicate tag" in (c.details[0] if c.details else "")
+        ]
+        assert dup_warnings
+        assert "p" in dup_warnings[0].details[0]
+        assert "rua" in dup_warnings[0].details[0]

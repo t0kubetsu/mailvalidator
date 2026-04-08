@@ -418,11 +418,31 @@ def _validate_policy(
                 )
             )
         else:
-            result.checks.append(
-                CheckResult(
-                    name="MX Entries", status=Status.OK, value=", ".join(mx_entries)
+            # M7: Detect duplicate mx: entries (RFC 8461 §3.2 — each pattern should be distinct).
+            seen_mx: set[str] = set()
+            dup_mx: list[str] = []
+            for m in mx_entries:
+                if m in seen_mx:
+                    dup_mx.append(m)
+                seen_mx.add(m)
+            if dup_mx:
+                result.checks.append(
+                    CheckResult(
+                        name="MX Entries",
+                        status=Status.WARNING,
+                        value=", ".join(mx_entries),
+                        details=[
+                            f"Duplicate mx: entries found: {', '.join(sorted(set(dup_mx)))}. "
+                            "Each MX pattern should appear at most once (RFC 8461 §3.2)."
+                        ],
+                    )
                 )
-            )
+            else:
+                result.checks.append(
+                    CheckResult(
+                        name="MX Entries", status=Status.OK, value=", ".join(mx_entries)
+                    )
+                )
     else:
         result.checks.append(
             CheckResult(
