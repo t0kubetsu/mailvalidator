@@ -374,3 +374,158 @@ class TestCmdDnssec:
         assert result.exit_code == 0
         mock_print_d.assert_called_once_with(dnssec_result)
         mock_print_mx.assert_called_once_with(mx_dnssec_result)
+
+
+class TestJsonFlag:
+    """--json flag outputs valid JSON and skips the Rich reporter."""
+
+    def _valid_json(self, output: str) -> dict:
+        import json
+
+        return json.loads(output)
+
+    def test_check_json(self):
+        with (
+            patch(
+                "mailvalidator.cli.assess",
+                return_value=FullReport(domain="example.com"),
+            ),
+            patch("mailvalidator.cli.print_full_report") as mock_print,
+        ):
+            result = _runner.invoke(app, ["check", "example.com", "--json"])
+        assert result.exit_code == 0
+        data = self._valid_json(result.output)
+        assert data["domain"] == "example.com"
+        mock_print.assert_not_called()
+
+    def test_mx_json(self):
+        with (
+            patch("mailvalidator.cli.check_mx", return_value=make_mx_result()),
+            patch("mailvalidator.cli.print_mx") as mock_print,
+        ):
+            result = _runner.invoke(app, ["mx", "example.com", "--json"])
+        assert result.exit_code == 0
+        data = self._valid_json(result.output)
+        assert "domain" in data
+        mock_print.assert_not_called()
+
+    def test_spf_json(self):
+        with (
+            patch("mailvalidator.cli.check_spf", return_value=make_simple_result(SPFResult)),
+            patch("mailvalidator.cli.print_spf") as mock_print,
+        ):
+            result = _runner.invoke(app, ["spf", "example.com", "--json"])
+        assert result.exit_code == 0
+        self._valid_json(result.output)
+        mock_print.assert_not_called()
+
+    def test_dmarc_json(self):
+        with (
+            patch("mailvalidator.cli.check_dmarc", return_value=make_simple_result(DMARCResult)),
+            patch("mailvalidator.cli.print_dmarc") as mock_print,
+        ):
+            result = _runner.invoke(app, ["dmarc", "example.com", "--json"])
+        assert result.exit_code == 0
+        self._valid_json(result.output)
+        mock_print.assert_not_called()
+
+    def test_dkim_json(self):
+        with (
+            patch("mailvalidator.cli.check_dkim", return_value=make_simple_result(DKIMResult)),
+            patch("mailvalidator.cli.print_dkim") as mock_print,
+        ):
+            result = _runner.invoke(app, ["dkim", "example.com", "--json"])
+        assert result.exit_code == 0
+        self._valid_json(result.output)
+        mock_print.assert_not_called()
+
+    def test_bimi_json(self):
+        with (
+            patch("mailvalidator.cli.check_bimi", return_value=make_simple_result(BIMIResult)),
+            patch("mailvalidator.cli.print_bimi") as mock_print,
+        ):
+            result = _runner.invoke(app, ["bimi", "example.com", "--json"])
+        assert result.exit_code == 0
+        self._valid_json(result.output)
+        mock_print.assert_not_called()
+
+    def test_tlsrpt_json(self):
+        with (
+            patch("mailvalidator.cli.check_tlsrpt", return_value=make_simple_result(TLSRPTResult)),
+            patch("mailvalidator.cli.print_tlsrpt") as mock_print,
+        ):
+            result = _runner.invoke(app, ["tlsrpt", "example.com", "--json"])
+        assert result.exit_code == 0
+        self._valid_json(result.output)
+        mock_print.assert_not_called()
+
+    def test_mta_sts_json(self):
+        with (
+            patch("mailvalidator.cli.check_mta_sts", return_value=make_simple_result(MTASTSResult)),
+            patch("mailvalidator.cli.print_mta_sts") as mock_print,
+        ):
+            result = _runner.invoke(app, ["mta-sts", "example.com", "--json"])
+        assert result.exit_code == 0
+        self._valid_json(result.output)
+        mock_print.assert_not_called()
+
+    def test_blacklist_json(self):
+        bl = BlacklistResult(ip="1.2.3.4")
+        bl.total_checked = 5
+        bl.listed_on = []
+        bl.checks = []
+        with (
+            patch("mailvalidator.cli.check_blacklist", return_value=bl),
+            patch("mailvalidator.cli.print_blacklist") as mock_print,
+        ):
+            result = _runner.invoke(app, ["blacklist", "1.2.3.4", "--json"])
+        assert result.exit_code == 0
+        data = self._valid_json(result.output)
+        assert data["ip"] == "1.2.3.4"
+        mock_print.assert_not_called()
+
+    def test_smtp_json(self):
+        r = SMTPDiagResult(host="mail.example.com", port=25)
+        r.checks = []
+        with (
+            patch("mailvalidator.cli.check_smtp", return_value=r),
+            patch("mailvalidator.cli.print_smtp") as mock_print,
+        ):
+            result = _runner.invoke(app, ["smtp", "mail.example.com", "--json"])
+        assert result.exit_code == 0
+        data = self._valid_json(result.output)
+        assert data["host"] == "mail.example.com"
+        mock_print.assert_not_called()
+
+    def test_dnssec_json_no_mx(self):
+        from mailvalidator.models import DNSSECResult, MXResult
+
+        with (
+            patch("mailvalidator.cli.check_dnssec_domain", return_value=DNSSECResult(domain="example.com")),
+            patch("mailvalidator.cli.check_mx", return_value=MXResult(domain="example.com")),
+            patch("mailvalidator.cli.print_dnssec_domain") as mock_print,
+        ):
+            result = _runner.invoke(app, ["dnssec", "example.com", "--json"])
+        assert result.exit_code == 0
+        data = self._valid_json(result.output)
+        assert "domain" in data
+        assert "mx" not in data
+        mock_print.assert_not_called()
+
+    def test_dnssec_json_with_mx(self):
+        from mailvalidator.models import DNSSECResult, MXRecord, MXResult
+
+        mx_result = MXResult(domain="example.com")
+        mx_result.records = [MXRecord(priority=10, exchange="mx1.example.com")]
+        with (
+            patch("mailvalidator.cli.check_dnssec_domain", return_value=DNSSECResult(domain="example.com")),
+            patch("mailvalidator.cli.check_mx", return_value=mx_result),
+            patch("mailvalidator.cli.check_dnssec_mx", return_value=DNSSECResult(domain="example.com")),
+            patch("mailvalidator.cli.print_dnssec_domain") as mock_print,
+        ):
+            result = _runner.invoke(app, ["dnssec", "example.com", "--json"])
+        assert result.exit_code == 0
+        data = self._valid_json(result.output)
+        assert "domain" in data
+        assert "mx" in data
+        mock_print.assert_not_called()

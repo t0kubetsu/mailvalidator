@@ -22,7 +22,9 @@ Usage example::
 
 from __future__ import annotations
 
+import dataclasses
 import ipaddress
+import json
 import re
 from typing import Annotated, Optional
 
@@ -86,6 +88,11 @@ _HOSTNAME_RE = re.compile(
     r"(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*"
     r"(?:[a-zA-Z0-9-]{1,63})\.?$"
 )
+
+
+def _print_json(obj: object) -> None:
+    """Serialise a dataclass *obj* to stdout as pretty-printed JSON."""
+    typer.echo(json.dumps(dataclasses.asdict(obj), indent=2))  # type: ignore[call-overload]
 
 
 def _validate_domain(value: str) -> str:
@@ -207,6 +214,10 @@ def cmd_check(
             ),
         ),
     ] = None,
+    as_json: Annotated[
+        bool,
+        typer.Option("--json", help="Output results as JSON."),
+    ] = False,
 ) -> None:
     """Run all mail server checks for DOMAIN and print a full report."""
     with Progress(
@@ -227,6 +238,10 @@ def cmd_check(
             run_dnssec=not no_dnssec,
             progress_cb=_progress_cb,
         )
+
+    if as_json:
+        _print_json(report)
+        return
 
     print_full_report(report)
 
@@ -250,9 +265,17 @@ def cmd_mx(
         str,
         typer.Argument(help="Domain name.", callback=_validate_domain),
     ],
+    as_json: Annotated[
+        bool,
+        typer.Option("--json", help="Output results as JSON."),
+    ] = False,
 ) -> None:
     """Look up MX records for DOMAIN."""
-    print_mx(check_mx(domain))
+    result = check_mx(domain)
+    if as_json:
+        _print_json(result)
+    else:
+        print_mx(result)
 
 
 @app.command("smtp")
@@ -267,9 +290,17 @@ def cmd_smtp(
         int,
         typer.Option("--port", "-p", help="SMTP port."),
     ] = 25,
+    as_json: Annotated[
+        bool,
+        typer.Option("--json", help="Output results as JSON."),
+    ] = False,
 ) -> None:
     """Run SMTP diagnostics against HOST."""
-    print_smtp([check_smtp(host, port=port)])
+    result = check_smtp(host, port=port)
+    if as_json:
+        _print_json(result)
+    else:
+        print_smtp([result])
 
 
 @app.command("spf")
@@ -278,9 +309,17 @@ def cmd_spf(
         str,
         typer.Argument(help="Domain name.", callback=_validate_domain),
     ],
+    as_json: Annotated[
+        bool,
+        typer.Option("--json", help="Output results as JSON."),
+    ] = False,
 ) -> None:
     """Look up and validate the SPF record for DOMAIN."""
-    print_spf(check_spf(domain))
+    result = check_spf(domain)
+    if as_json:
+        _print_json(result)
+    else:
+        print_spf(result)
 
 
 @app.command("dmarc")
@@ -289,9 +328,17 @@ def cmd_dmarc(
         str,
         typer.Argument(help="Domain name.", callback=_validate_domain),
     ],
+    as_json: Annotated[
+        bool,
+        typer.Option("--json", help="Output results as JSON."),
+    ] = False,
 ) -> None:
     """Look up and validate the DMARC record for DOMAIN."""
-    print_dmarc(check_dmarc(domain))
+    result = check_dmarc(domain)
+    if as_json:
+        _print_json(result)
+    else:
+        print_dmarc(result)
 
 
 @app.command("dkim")
@@ -300,9 +347,17 @@ def cmd_dkim(
         str,
         typer.Argument(help="Domain name.", callback=_validate_domain),
     ],
+    as_json: Annotated[
+        bool,
+        typer.Option("--json", help="Output results as JSON."),
+    ] = False,
 ) -> None:
     """Check the DKIM base node (_domainkey.DOMAIN) for RFC 2308 conformance."""
-    print_dkim(check_dkim(domain))
+    result = check_dkim(domain)
+    if as_json:
+        _print_json(result)
+    else:
+        print_dkim(result)
 
 
 @app.command("bimi")
@@ -311,9 +366,17 @@ def cmd_bimi(
         str,
         typer.Argument(help="Domain name.", callback=_validate_domain),
     ],
+    as_json: Annotated[
+        bool,
+        typer.Option("--json", help="Output results as JSON."),
+    ] = False,
 ) -> None:
     """Look up and validate the BIMI record for DOMAIN."""
-    print_bimi(check_bimi(domain))
+    result = check_bimi(domain)
+    if as_json:
+        _print_json(result)
+    else:
+        print_bimi(result)
 
 
 @app.command("tlsrpt")
@@ -322,9 +385,17 @@ def cmd_tlsrpt(
         str,
         typer.Argument(help="Domain name.", callback=_validate_domain),
     ],
+    as_json: Annotated[
+        bool,
+        typer.Option("--json", help="Output results as JSON."),
+    ] = False,
 ) -> None:
     """Check the SMTP TLS Reporting (TLSRPT) record for DOMAIN."""
-    print_tlsrpt(check_tlsrpt(domain))
+    result = check_tlsrpt(domain)
+    if as_json:
+        _print_json(result)
+    else:
+        print_tlsrpt(result)
 
 
 @app.command("mta-sts")
@@ -333,9 +404,17 @@ def cmd_mta_sts(
         str,
         typer.Argument(help="Domain name.", callback=_validate_domain),
     ],
+    as_json: Annotated[
+        bool,
+        typer.Option("--json", help="Output results as JSON."),
+    ] = False,
 ) -> None:
     """Check the MTA-STS DNS record and policy file for DOMAIN."""
-    print_mta_sts(check_mta_sts(domain))
+    result = check_mta_sts(domain)
+    if as_json:
+        _print_json(result)
+    else:
+        print_mta_sts(result)
 
 
 @app.command("blacklist")
@@ -348,9 +427,17 @@ def cmd_blacklist(
         int,
         typer.Option("--workers", "-w", help="Number of parallel DNS workers."),
     ] = 50,
+    as_json: Annotated[
+        bool,
+        typer.Option("--json", help="Output results as JSON."),
+    ] = False,
 ) -> None:
     """Check IP against 100+ DNS blacklists."""
-    print_blacklist(check_blacklist(ip, max_workers=workers))
+    result = check_blacklist(ip, max_workers=workers)
+    if as_json:
+        _print_json(result)
+    else:
+        print_blacklist(result)
 
 
 @app.command("dnssec")
@@ -359,13 +446,28 @@ def cmd_dnssec(
         str,
         typer.Argument(help="Domain name.", callback=_validate_domain),
     ],
+    as_json: Annotated[
+        bool,
+        typer.Option("--json", help="Output results as JSON."),
+    ] = False,
 ) -> None:
     """Check DNSSEC chain-of-trust for DOMAIN and its MX server domain(s)."""
-    print_dnssec_domain(check_dnssec_domain(domain))
+    domain_result = check_dnssec_domain(domain)
     mx_result = check_mx(domain)
+    mx_dnssec = None
     if mx_result.records:
         mx_domains = [r.exchange for r in mx_result.records]
-        print_dnssec_mx(check_dnssec_mx(mx_domains, email_domain=domain))
+        mx_dnssec = check_dnssec_mx(mx_domains, email_domain=domain)
+
+    if as_json:
+        payload: dict = {"domain": dataclasses.asdict(domain_result)}
+        if mx_dnssec is not None:
+            payload["mx"] = dataclasses.asdict(mx_dnssec)
+        typer.echo(json.dumps(payload, indent=2))
+    else:
+        print_dnssec_domain(domain_result)
+        if mx_dnssec is not None:
+            print_dnssec_mx(mx_dnssec)
 
 
 if __name__ == "__main__":  # pragma: no cover
