@@ -172,10 +172,10 @@ def print_mx(result: MXResult) -> None:
 
 
 _SMTP_SECTIONS: list[tuple[str, str]] = [
-    ("Protocol", "blue"),
-    ("TLS", "cyan"),
-    ("Certificate", "green"),
-    ("DNS", "magenta"),
+    ("Protocol", "bright_white"),
+    ("TLS", "bright_white"),
+    ("Certificate", "bright_white"),
+    ("DNS", "bright_white"),
 ]
 
 
@@ -447,7 +447,9 @@ def print_verdict(actions: list[VerdictAction], grade: Grade | None = None) -> N
         title = _grade_text(grade)
         border_colour = _GRADE_STYLE.get(grade.letter, "bold white").split()[-1]
 
-    tbl = Table(box=box.SIMPLE, show_header=True, header_style="bold white", expand=True)
+    tbl = Table(
+        box=box.SIMPLE, show_header=True, header_style="bold white", expand=True
+    )
     tbl.add_column("Priority", style="bold", min_width=10, no_wrap=True)
     tbl.add_column("Action")
 
