@@ -28,6 +28,7 @@ from mailvalidator.models import (
     Status,
     TLSRPTResult,
 )
+from mailvalidator.verdict import VerdictAction, VerdictSeverity, extract_verdict_actions
 
 console = Console(record=True)
 
@@ -306,6 +307,37 @@ def print_dnssec_mx(result: DNSSECResult) -> None:
     console.print(_checks_table(result.checks))
 
 
+def print_verdict(actions: list[VerdictAction]) -> None:
+    """Render the prioritised security verdict panel to the terminal.
+
+    Displays a colour-coded table of actionable items sorted from most to
+    least urgent (``CRITICAL`` → ``HIGH`` → ``MEDIUM``).  Called by
+    :func:`print_full_report` when there is at least one action to show.
+
+    :param actions: Deduplicated, severity-sorted action list from
+        :func:`~mailvalidator.verdict.extract_verdict_actions`.
+    :type actions: list[~mailvalidator.verdict.VerdictAction]
+    """
+    _SEV_STYLE: dict[VerdictSeverity, tuple[str, str]] = {
+        VerdictSeverity.CRITICAL: ("bold red", "✘ CRITICAL"),
+        VerdictSeverity.HIGH: ("bold yellow", "⚠ HIGH"),
+        VerdictSeverity.MEDIUM: ("bold cyan", "· MEDIUM"),
+    }
+    tbl = Table(show_header=True, header_style="bold red", expand=True, padding=(0, 1))
+    tbl.add_column("Priority", justify="center", no_wrap=True)
+    tbl.add_column("Action")
+    for action in actions:
+        style, label = _SEV_STYLE[action.severity]
+        tbl.add_row(Text(label, style=style), action.text)
+    console.print(
+        Panel(
+            "[bold red]Security Verdict[/bold red] – Prioritised Actions",
+            style="red",
+        )
+    )
+    console.print(tbl)
+
+
 def print_full_report(report: FullReport) -> None:
     """Render the complete :class:`~mailvalidator.models.FullReport` to the terminal.
 
@@ -337,5 +369,9 @@ def print_full_report(report: FullReport) -> None:
         print_mta_sts(report.mta_sts)
     if report.blacklist:
         print_blacklist(report.blacklist)
+
+    actions = extract_verdict_actions(report)
+    if actions:
+        print_verdict(actions)
 
     console.rule("[dim]End of Report[/dim]")

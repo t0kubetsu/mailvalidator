@@ -13,7 +13,7 @@ $ mailvalidator check example.com
 ```
 
 ![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue)
-![Tests](https://img.shields.io/badge/tests-542%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-608%20passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 ![License](https://img.shields.io/badge/license-GPLv3-lightgrey)
 
@@ -51,7 +51,7 @@ $ mailvalidator check example.com
 | **CAA**              | _(part of smtp)_          | RFC 8659: hierarchy walk; `issue` / `issuewild` tags checked independently; deny-all (`issue ";"`) surfaced; wildcard governance note when `issuewild` is absent; flags byte validation; `iodef` scheme validation (https:// or mailto: only)                                                                                               |
 | **DANE / TLSA**      | _(part of smtp)_          | RFC 6698 / RFC 7671: TLSA existence; SHA-256/SHA-512 fingerprint match; rollover scheme; matching type 0 discouraged (RFC 7671 §5.1); DNSSEC prerequisite noted                                                                                                                                                                             |
 | **Blacklist**        | `mailvalidator blacklist` | 104 DNSBL zones in parallel, RFC 5782 §2.1 compliant                                                                                                                                                                                                                                                                                        |
-| **Full Report**      | `mailvalidator check`     | All of the above in one command                                                                                                                                                                                                                                                                                                             |
+| **Full Report**      | `mailvalidator check`     | All of the above in one command, plus a **Security Verdict** panel with prioritised action items |
 
 ### SMTP check (RFC 5321)
 
@@ -342,7 +342,7 @@ pytest tests/checks/test_smtp.py -v
 pytest tests/checks/test_spf.py::TestSPFCoverage -v
 ```
 
-The test suite has **542 tests** and achieves **100% coverage** (1 730
+The test suite has **608 tests** and achieves **100% coverage** (1 820
 statements) across all modules. Coverage reporting is pre-configured in
 `pyproject.toml` — no extra flags needed.
 
@@ -360,7 +360,7 @@ export is tested by mocking Rich's `console.save_text`, `save_svg`, and
 
 1. Fork the repository and create a feature branch.
 2. Add or update tests — the project targets 100% unit test coverage.
-3. Run `pytest` and confirm all 542 tests pass before opening a pull request.
+3. Run `pytest` and confirm all 608 tests pass before opening a pull request.
 4. Follow the existing docstring format (reStructuredText / docutils field lists).
 5. Use [conventional commits](https://www.conventionalcommits.org/):
    `fix:`, `feat:`, `refactor:`, `test:`, `docs:`, `chore:`

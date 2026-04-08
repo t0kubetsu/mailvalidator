@@ -27,6 +27,7 @@ mailvalidator/
 ├── models.py      → All dataclasses (CheckResult, Status, *Result, FullReport)
 ├── dns_utils.py   → Shared DNS helpers
 ├── reporter.py    → Rich rendering for each result type + save_report()
+├── verdict.py     → Security verdict extraction: severity mapping, action deduplication
 └── checks/        → One module per check: spf, dmarc, dkim, bimi, mx,
    │                  mta_sts, tlsrpt, blacklist, dnssec
    └── smtp/        → SMTP diagnostics package (split from smtp.py)
@@ -84,7 +85,7 @@ pytest tests/checks/test_spf.py -v
 
 - Test runner: `pytest` (auto-configured via `pyproject.toml`)
 - Coverage flag already wired: `--cov=mailvalidator --cov-report=term-missing`
-- **Current state: 536 tests, 100% coverage** across all 17 modules (1 658 statements)
+- **Current state: 608 tests, 100% coverage** across all 18 modules (1 820 statements)
 - Shared fixtures in `tests/conftest.py` — use `make_tls()`, `make_mx_result()`,
   `console_capture()`, `make_simple_result()`, `make_rsa_cert_der()`,
   `make_ec_cert_der()` rather than building objects by hand

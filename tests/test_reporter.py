@@ -38,8 +38,10 @@ from mailvalidator.reporter import (
     print_smtp,
     print_spf,
     print_tlsrpt,
+    print_verdict,
     save_report,
 )
+from mailvalidator.verdict import VerdictAction, VerdictSeverity
 from tests.conftest import console_capture
 
 
@@ -396,6 +398,78 @@ class TestPrintFullReport:
         with _patch_console(con):
             print_full_report(r)
         assert "empty.example.com" in buf.getvalue()
+
+
+class TestPrintVerdict:
+    """Tests for :func:`~mailvalidator.reporter.print_verdict`."""
+
+    def _action(self, severity: VerdictSeverity, check_name: str = "SPF Record", text: str | None = None) -> VerdictAction:
+        if text is None:
+            text = f"Fix {check_name}"
+        return VerdictAction(text=text, severity=severity, check_name=check_name)
+
+    def test_renders_critical_label(self):
+        con, buf = console_capture()
+        with _patch_console(con):
+            print_verdict([self._action(VerdictSeverity.CRITICAL)])
+        assert "CRITICAL" in buf.getvalue()
+
+    def test_renders_high_label(self):
+        con, buf = console_capture()
+        with _patch_console(con):
+            print_verdict([self._action(VerdictSeverity.HIGH, "STARTTLS")])
+        assert "HIGH" in buf.getvalue()
+
+    def test_renders_medium_label(self):
+        con, buf = console_capture()
+        with _patch_console(con):
+            print_verdict([self._action(VerdictSeverity.MEDIUM, "BIMI Record")])
+        assert "MEDIUM" in buf.getvalue()
+
+    def test_renders_action_text(self):
+        con, buf = console_capture()
+        with _patch_console(con):
+            print_verdict([self._action(VerdictSeverity.CRITICAL, text="Fix SPF Record: no record found")])
+        assert "Fix SPF Record" in buf.getvalue()
+
+    def test_renders_panel_title(self):
+        con, buf = console_capture()
+        with _patch_console(con):
+            print_verdict([self._action(VerdictSeverity.HIGH, "STARTTLS")])
+        assert "Security Verdict" in buf.getvalue()
+
+    def test_renders_multiple_actions(self):
+        con, buf = console_capture()
+        with _patch_console(con):
+            print_verdict([
+                self._action(VerdictSeverity.CRITICAL, "SPF Record"),
+                self._action(VerdictSeverity.HIGH, "STARTTLS"),
+                self._action(VerdictSeverity.MEDIUM, "BIMI Record"),
+            ])
+        output = buf.getvalue()
+        assert "CRITICAL" in output
+        assert "HIGH" in output
+        assert "MEDIUM" in output
+
+    def test_verdict_shown_in_full_report_when_actions_exist(self):
+        r = FullReport(domain="example.com")
+        spf = SPFResult(domain="example.com")
+        spf.checks = [CheckResult(name="SPF Record", status=Status.NOT_FOUND)]
+        r.spf = spf
+        con, buf = console_capture()
+        with _patch_console(con):
+            print_full_report(r)
+        assert "Security Verdict" in buf.getvalue()
+
+    def test_verdict_not_shown_in_full_report_when_all_pass(self):
+        r = FullReport(domain="example.com")
+        spf = SPFResult(domain="example.com")
+        spf.checks = [CheckResult(name="SPF Record", status=Status.OK, value="v=spf1 -all")]
+        r.spf = spf
+        con, buf = console_capture()
+        with _patch_console(con):
+            print_full_report(r)
+        assert "Security Verdict" not in buf.getvalue()
 
 
 class TestSaveReport:
