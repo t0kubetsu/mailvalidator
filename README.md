@@ -268,6 +268,9 @@ Every `mailvalidator check` run ends with a **Security Verdict** panel that
 lists prioritised action items and assigns a letter grade to the overall mail
 server configuration.
 
+For a detailed explanation of each check's severity rationale — intended for
+security teams and CISOs — see **[docs/SECURITY_VERDICT.md](docs/SECURITY_VERDICT.md)**.
+
 ### How the grade is calculated
 
 The grading uses a **penalty-point model**: a perfect configuration starts at

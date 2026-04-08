@@ -147,3 +147,5 @@ Two files must always be updated together:
 | Change the data model | `mailvalidator/models.py` |
 | Add DNS utilities | `mailvalidator/dns_utils.py` |
 | Add/fix tests | `tests/checks/test_<name>.py` + `tests/conftest.py` for fixtures |
+| Change severity of a check | `mailvalidator/verdict.py` (`_PRIORITY` dict) + update `docs/SECURITY_VERDICT.md` |
+| Explain grading to a CISO | `docs/SECURITY_VERDICT.md` |
