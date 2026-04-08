@@ -657,14 +657,14 @@ The table inside lists every action item sorted from most to least urgent
 
 ```
 ╭─── Security Verdict  C  1 critical, 1 high, 1 medium issue(s) found (38 penalty point(s)). ─────────────────────╮
-│                                                                                                                   │
-│  Priority    Action                                                                                               │
+│                                                                                                                 │
+│  Priority    Action                                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────────────────────────────────────────── │
-│  CRITICAL    Fix SPF Record: No SPF record found at example.com.                                                 │
+│  CRITICAL    Fix SPF Record: No SPF record found at example.com.                                                │
 │  HIGH        Review Policy (p=): p=none — DMARC is in monitoring mode only, no enforcement.                     │
 │  MEDIUM      Fix TLSRPT Record: No TLSRPT record found at _smtp._tls.example.com.                               │
-│                                                                                                                   │
-╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+│                                                                                                                 │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 The panel border colour reflects the grade: bright green for A+/A, yellow for B/C,
