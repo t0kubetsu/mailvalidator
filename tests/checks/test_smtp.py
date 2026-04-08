@@ -2032,3 +2032,32 @@ class TestCheckEhloDomainEmptyToken:
         _check_ehlo_domain(smtp, checks)
         assert checks[0].status == Status.ERROR
         assert "does not include a domain name" in checks[0].details[0]
+
+
+# ── _tag helper (mailvalidator/checks/smtp/_check.py) ─────────────────────────
+
+
+class TestTagHelper:
+    def test_tags_checks_from_start_index(self):
+        """_tag assigns the section string to all checks from start onward."""
+        from mailvalidator.checks.smtp._check import _tag
+        from mailvalidator.models import CheckResult, Status
+
+        checks = [
+            CheckResult(name="A", status=Status.OK),
+            CheckResult(name="B", status=Status.OK),
+            CheckResult(name="C", status=Status.OK),
+        ]
+        _tag(checks, 1, "TLS")
+        assert checks[0].section == ""   # untouched
+        assert checks[1].section == "TLS"
+        assert checks[2].section == "TLS"
+
+    def test_tag_empty_slice_is_noop(self):
+        """_tag with start == len(checks) touches nothing."""
+        from mailvalidator.checks.smtp._check import _tag
+        from mailvalidator.models import CheckResult, Status
+
+        checks = [CheckResult(name="A", status=Status.OK)]
+        _tag(checks, 1, "DNS")
+        assert checks[0].section == ""

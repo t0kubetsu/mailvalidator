@@ -133,6 +133,53 @@ class TestPrintSmtp:
         assert "mx1.example.com" in buf.getvalue()
         assert "mx2.example.com" in buf.getvalue()
 
+    def test_sectioned_checks_render_panels(self):
+        r = SMTPDiagResult(host="mail.example.com", port=25)
+        r.checks = [
+            CheckResult(name="Connect", status=Status.OK, section="Protocol"),
+            CheckResult(name="TLS Version", status=Status.OK, section="TLS"),
+        ]
+        con, buf = console_capture()
+        with _patch_console(con):
+            print_smtp([r])
+        output = buf.getvalue()
+        assert "Protocol" in output
+        assert "TLS" in output
+        assert "Connect" in output
+
+    def test_unsectioned_checks_render_flat_table(self):
+        r = SMTPDiagResult(host="mail.example.com", port=25)
+        r.checks = [CheckResult(name="SomeCheck", status=Status.OK)]
+        con, buf = console_capture()
+        with _patch_console(con):
+            print_smtp([r])
+        assert "SomeCheck" in buf.getvalue()
+
+    def test_mixed_sectioned_and_unsectioned(self):
+        r = SMTPDiagResult(host="mail.example.com", port=25)
+        r.checks = [
+            CheckResult(name="ProtoCheck", status=Status.OK, section="Protocol"),
+            CheckResult(name="Bare", status=Status.OK),
+        ]
+        con, buf = console_capture()
+        with _patch_console(con):
+            print_smtp([r])
+        output = buf.getvalue()
+        assert "Protocol" in output
+        assert "Bare" in output
+
+    def test_unknown_section_name_rendered(self):
+        r = SMTPDiagResult(host="mail.example.com", port=25)
+        r.checks = [
+            CheckResult(name="WeirdCheck", status=Status.OK, section="Custom"),
+        ]
+        con, buf = console_capture()
+        with _patch_console(con):
+            print_smtp([r])
+        output = buf.getvalue()
+        assert "Custom" in output
+        assert "WeirdCheck" in output
+
 
 class TestPrintSpf:
     def test_prints_domain(self):

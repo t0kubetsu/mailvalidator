@@ -13,7 +13,7 @@ $ mailvalidator check example.com
 ```
 
 ![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue)
-![Tests](https://img.shields.io/badge/tests-536%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-542%20passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 ![License](https://img.shields.io/badge/license-GPLv3-lightgrey)
 
@@ -59,6 +59,12 @@ The SMTP check targets **external-facing MX servers** that accept inbound mail
 on **port 25** (RFC 5321 §2.1, §4.5.3.2). Port 587 is the _submission_ port
 (RFC 6409) and requires AUTH — it is a different service and these checks are
 not meaningful against it.
+
+Results are grouped into four colour-coded panels: **Protocol** (connection,
+banner, EHLO, extensions, STARTTLS, VRFY, open relay), **TLS** (version
+probing, ciphers, key exchange, compression, renegotiation), **Certificate**
+(trust chain, public key, SAN/domain match, expiry), and **DNS** (PTR, CAA,
+DANE/TLSA).
 
 | Sub-check                | RFC reference                          | What is verified                                                                         |
 | ------------------------ | -------------------------------------- | ---------------------------------------------------------------------------------------- |
@@ -280,7 +286,16 @@ mailvalidator/
 │   └── checks/
 │       ├── mx.py
 │       ├── dnssec.py      DNSSEC chain-of-trust checks (requires chainvalidator)
-│       ├── smtp.py        SMTP diagnostics + deep TLS inspection (RFC 5321)
+│       ├── smtp/          SMTP diagnostics + deep TLS inspection (RFC 5321)
+│       │   ├── __init__.py    Re-exports public API (check_smtp)
+│       │   ├── _check.py      Orchestrator — runs all sub-checks, tags sections
+│       │   ├── _classify.py   TLS version / cipher / curve classification
+│       │   ├── _connection.py TCP connect helper
+│       │   ├── _cert.py       Certificate validation checks
+│       │   ├── _tls_probe.py  STARTTLS handshake + cipher enumeration
+│       │   ├── _tls_checks.py TLS version, cipher, key-exchange, compression, renegotiation
+│       │   ├── _dns.py        CAA and DANE/TLSA checks
+│       │   └── _protocol.py   Banner FQDN, EHLO, ESMTP extensions, VRFY, open relay
 │       ├── spf.py
 │       ├── dmarc.py
 │       ├── dkim.py
@@ -327,8 +342,8 @@ pytest tests/checks/test_smtp.py -v
 pytest tests/checks/test_spf.py::TestSPFCoverage -v
 ```
 
-The test suite has **536 tests** and achieves **100% coverage** (1 658
-statements) across all 17 modules. Coverage reporting is pre-configured in
+The test suite has **542 tests** and achieves **100% coverage** (1 730
+statements) across all modules. Coverage reporting is pre-configured in
 `pyproject.toml` — no extra flags needed.
 
 SMTP network I/O functions (`_probe_tls`, `check_smtp`, etc.) require a live
@@ -345,7 +360,7 @@ export is tested by mocking Rich's `console.save_text`, `save_svg`, and
 
 1. Fork the repository and create a feature branch.
 2. Add or update tests — the project targets 100% unit test coverage.
-3. Run `pytest` and confirm all 536 tests pass before opening a pull request.
+3. Run `pytest` and confirm all 542 tests pass before opening a pull request.
 4. Follow the existing docstring format (reStructuredText / docutils field lists).
 5. Use [conventional commits](https://www.conventionalcommits.org/):
    `fix:`, `feat:`, `refactor:`, `test:`, `docs:`, `chore:`

@@ -144,8 +144,20 @@ def print_mx(result: MXResult) -> None:
     console.print(_checks_table(result.checks))
 
 
+_SMTP_SECTIONS: list[tuple[str, str]] = [
+    ("Protocol", "blue"),
+    ("TLS", "cyan"),
+    ("Certificate", "green"),
+    ("DNS", "magenta"),
+]
+
+
 def print_smtp(results: list[SMTPDiagResult]) -> None:
     """Render SMTP diagnostic results for one or more mail servers.
+
+    Checks are grouped into four sections (Protocol, TLS, Certificate, DNS)
+    when section metadata is present.  Falls back to a single flat table for
+    results produced without section tags.
 
     :param results: List of per-server SMTP diagnostic results.
     :type results: list[~mailvalidator.models.SMTPDiagResult]
@@ -154,7 +166,33 @@ def print_smtp(results: list[SMTPDiagResult]) -> None:
         console.print(
             Panel(f"[bold]SMTP Diagnostics[/bold] – {r.host}:{r.port}", style="blue")
         )
-        console.print(_checks_table(r.checks))
+
+        # Group by section
+        sectioned: dict[str, list[CheckResult]] = {}
+        unsectioned: list[CheckResult] = []
+        for cr in r.checks:
+            if cr.section:
+                sectioned.setdefault(cr.section, []).append(cr)
+            else:
+                unsectioned.append(cr)
+
+        if sectioned:
+            for section_name, style in _SMTP_SECTIONS:
+                group = sectioned.get(section_name, [])
+                if not group:
+                    continue
+                console.print(Panel(f"[bold]{section_name}[/bold]", style=style, expand=True))
+                console.print(_checks_table(group))
+            # Emit any checks with unrecognised section names
+            for sname, group in sectioned.items():
+                if sname not in {s for s, _ in _SMTP_SECTIONS}:
+                    console.print(Panel(f"[bold]{sname}[/bold]", style="white", expand=True))
+                    console.print(_checks_table(group))
+            if unsectioned:
+                console.print(_checks_table(unsectioned))
+        else:
+            # No section metadata: flat table (backward-compatible)
+            console.print(_checks_table(r.checks))
 
 
 def print_dkim(result: DKIMResult) -> None:

@@ -47,6 +47,9 @@ class CheckResult:
     :param value: Optional one-line summary value (e.g. ``"TLSv1.3"``).
     :param details: Zero or more lines of additional context.
     :param raw: Optional raw data dict for programmatic consumers; not rendered.
+    :param section: Logical grouping used by the SMTP reporter to render
+        separate panels (``"Protocol"``, ``"TLS"``, ``"Certificate"``,
+        ``"DNS"``).  Empty string means no grouping.
     """
 
     name: str
@@ -54,6 +57,7 @@ class CheckResult:
     value: str = ""
     details: list[str] = field(default_factory=list)
     raw: dict | None = None
+    section: str = ""
 
 
 # ---------------------------------------------------------------------------
