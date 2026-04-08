@@ -292,8 +292,6 @@ def _fetch_cert_der(
     :returns: Raw DER bytes, or ``None`` on any failure.
     :rtype: bytes or None
     """
-    import smtplib
-
     try:
         smtp, _, _ = _connect_plain(host, port)
         smtp.ehlo(helo_domain)

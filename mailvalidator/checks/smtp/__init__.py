@@ -82,9 +82,12 @@ __all__ = [
     "_make_cipher_probe_ctx",
     "_no_verify_ctx",
 
+    "_fetch_cert_der",
     "_parse_caa_record",
+    "_probe_single_tls_version",
     "_set_sni",
     "_tls_version_status",
     "_tlsa_fingerprint",
     "_verify_tlsa_record",
+    "resolve",
 ]
