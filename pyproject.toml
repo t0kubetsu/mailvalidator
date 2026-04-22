@@ -60,6 +60,7 @@ dependencies = [
     "typer>=0.12",
     "aiohttp>=3.9",
     "cryptography>=42",
+    "chainvalidator @ file:./vendor/chainvalidator",
 ]
 
 [project.urls]

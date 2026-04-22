@@ -3,4 +3,3 @@ cryptography
 dnspython
 rich
 typer
-vendor/chainvalidator
