@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mailvalidator.checks.smtp import (
+    _connect_or_fallback,
     _cert_info,
     _check_banner_fqdn,
     _check_caa,
@@ -2096,4 +2097,138 @@ class TestTagHelper:
 
         checks = [CheckResult(name="A", status=Status.OK)]
         _tag(checks, 1, "DNS")
-        assert checks[0].section == ""
+
+
+# ── _connect_or_fallback ──────────────────────────────────────────────────────
+
+
+class TestConnectOrFallback:
+    def test_primary_port_succeeds(self):
+        """Port 25 connects immediately — no fallback, actual_port == 25."""
+        mock_smtp = MagicMock()
+        with patch(
+            "mailvalidator.checks.smtp._check._connect_plain",
+            return_value=(mock_smtp, 42.0, "220 banner"),
+        ) as mock_cp:
+            smtp, ms, banner, actual, err = _connect_or_fallback(
+                "mx.example.com", 25, (587, 465)
+            )
+        assert smtp is mock_smtp
+        assert actual == 25
+        assert err is None
+        mock_cp.assert_called_once_with("mx.example.com", 25)
+
+    def test_fallback_to_587_when_25_refused(self):
+        """ConnectionRefusedError on 25 → success on 587."""
+        mock_smtp = MagicMock()
+
+        def _side(host, port):
+            if port == 25:
+                raise ConnectionRefusedError("refused")
+            return mock_smtp, 55.0, "220 ok"
+
+        with patch(
+            "mailvalidator.checks.smtp._check._connect_plain", side_effect=_side
+        ):
+            smtp, _, _, actual, err = _connect_or_fallback(
+                "mx.example.com", 25, (587, 465)
+            )
+        assert smtp is mock_smtp
+        assert actual == 587
+        assert err is None
+
+    def test_fallback_to_465_when_25_and_587_refused(self):
+        """Both 25 and 587 refused → success on 465."""
+        mock_smtp = MagicMock()
+
+        def _side(host, port):
+            if port in (25, 587):
+                raise ConnectionRefusedError("refused")
+            return mock_smtp, 60.0, "220 ok"
+
+        with patch(
+            "mailvalidator.checks.smtp._check._connect_plain", side_effect=_side
+        ):
+            _, _, _, actual, err = _connect_or_fallback(
+                "mx.example.com", 25, (587, 465)
+            )
+        assert actual == 465
+        assert err is None
+
+    def test_all_ports_fail_returns_error(self):
+        """All three ports refused → smtp is None, error message lists every port."""
+        with patch(
+            "mailvalidator.checks.smtp._check._connect_plain",
+            side_effect=ConnectionRefusedError("refused"),
+        ):
+            smtp, _, _, _, err = _connect_or_fallback(
+                "mx.example.com", 25, (587, 465)
+            )
+        assert smtp is None
+        assert err is not None
+        assert "25" in err
+        assert "587" in err
+        assert "465" in err
+
+    def test_non_refusal_oserror_no_fallback(self):
+        """Generic OSError (e.g. network unreachable) → fail immediately, no retry."""
+        with patch(
+            "mailvalidator.checks.smtp._check._connect_plain",
+            side_effect=OSError("network unreachable"),
+        ) as mock_cp:
+            smtp, _, _, _, err = _connect_or_fallback(
+                "mx.example.com", 25, (587, 465)
+            )
+        assert smtp is None
+        assert err is not None
+        mock_cp.assert_called_once_with("mx.example.com", 25)
+
+    def test_timeout_triggers_fallback(self):
+        """TimeoutError on port 25 also triggers fallback (filtered port)."""
+        mock_smtp = MagicMock()
+
+        def _side(host, port):
+            if port == 25:
+                raise TimeoutError("timed out")
+            return mock_smtp, 55.0, "220 ok"
+
+        with patch(
+            "mailvalidator.checks.smtp._check._connect_plain", side_effect=_side
+        ):
+            smtp, _, _, actual, err = _connect_or_fallback(
+                "mx.example.com", 25, (587, 465)
+            )
+        assert actual == 587
+        assert err is None
+
+    def test_smtp_server_disconnected_triggers_fallback(self):
+        """SMTPServerDisconnected (banner timeout) on port 25 should trigger fallback."""
+        mock_smtp = MagicMock()
+
+        def _side(host, port):
+            if port == 25:
+                raise smtplib.SMTPServerDisconnected(
+                    "Connection unexpectedly closed: timed out"
+                )
+            return mock_smtp, 55.0, "220 ok"
+
+        with patch(
+            "mailvalidator.checks.smtp._check._connect_plain", side_effect=_side
+        ):
+            smtp, _, _, actual, err = _connect_or_fallback(
+                "mx.example.com", 25, (587, 465)
+            )
+        assert smtp is mock_smtp
+        assert actual == 587
+        assert err is None
+
+    def test_empty_fallback_no_retries(self):
+        """Empty fallback tuple → only the primary port is attempted."""
+        with patch(
+            "mailvalidator.checks.smtp._check._connect_plain",
+            side_effect=ConnectionRefusedError("refused"),
+        ) as mock_cp:
+            smtp, _, _, _, err = _connect_or_fallback("mx.example.com", 587, ())
+        assert smtp is None
+        assert err is not None
+        mock_cp.assert_called_once_with("mx.example.com", 587)

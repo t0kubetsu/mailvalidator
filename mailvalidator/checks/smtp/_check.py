@@ -24,6 +24,45 @@ from ._tls_checks import (
 from ._tls_probe import _probe_tls
 
 
+_SMTP_FALLBACK_PORTS: tuple[int, ...] = (587, 465)
+
+
+def _connect_or_fallback(
+    host: str,
+    port: int,
+    fallback_ports: tuple[int, ...],
+) -> tuple[smtplib.SMTP | None, float, str, int, str | None]:
+    """Try *port* first; on refusal or timeout retry each port in *fallback_ports*.
+
+    :param host: Mail server hostname or IP address.
+    :type host: str
+    :param port: Primary TCP port to try.
+    :type port: int
+    :param fallback_ports: Additional ports to try after a refusal/timeout.
+    :type fallback_ports: tuple[int, ...]
+    :returns: ``(smtp, connect_ms, banner, actual_port, error)`` where *smtp* is
+        ``None`` and *error* is a string when every attempt failed.
+    :rtype: tuple[smtplib.SMTP | None, float, str, int, str | None]
+    """
+    try:
+        smtp, ms, banner = _connect_plain(host, port)
+        return smtp, ms, banner, port, None
+    except (ConnectionRefusedError, TimeoutError, smtplib.SMTPServerDisconnected):
+        pass
+    except (OSError, smtplib.SMTPException) as exc:
+        return None, 0.0, "", port, str(exc)
+
+    for fp in fallback_ports:
+        try:
+            smtp, ms, banner = _connect_plain(host, fp)
+            return smtp, ms, banner, fp, None
+        except (OSError, smtplib.SMTPException):
+            pass
+
+    all_ports = ", ".join(str(p) for p in (port,) + fallback_ports)
+    return None, 0.0, "", port, f"No port responded ({all_ports})"
+
+
 def _tag(checks: list[CheckResult], start: int, section: str) -> None:
     """Tag all checks appended since *start* with *section*."""
     for cr in checks[start:]:
@@ -38,8 +77,9 @@ def check_smtp(
     """Run all SMTP diagnostics for *host*:*port* and return a populated result.
 
     This function targets **external-facing MX servers** (RFC 5321 §2.1).
-    Port 25 is the standard MX port; port 587 is the submission port (RFC 6409)
-    and is a different service — these checks are not appropriate against it.
+    When *port* is ``25`` and the connection is refused or times out, the function
+    automatically retries on ports 587 (RFC 6409) and 465 (RFC 8314) before
+    reporting failure.
 
     :param host: Mail server hostname or IP address.
     :type host: str
@@ -64,19 +104,35 @@ def check_smtp(
     # -------------------------------------------------------------------------
     proto_start = len(result.checks)
 
-    # Connect
-    try:
-        smtp, connect_ms, banner = _connect_plain(host, port)
-    except (OSError, smtplib.SMTPException) as exc:
+    # Connect — try port 25 first; fall back to 587 then 465 on refusal/timeout
+    _fallback = _SMTP_FALLBACK_PORTS if port == 25 else ()
+    _smtp, connect_ms, banner, actual_port, _conn_err = _connect_or_fallback(
+        host, port, _fallback
+    )
+    if _smtp is None:
         result.checks.append(
             CheckResult(
                 name="SMTP Connect",
                 status=Status.ERROR,
-                details=[f"Could not connect to {host}:{port} – {exc}"],
+                details=[f"Could not connect to {host} – {_conn_err}"],
             )
         )
         _tag(result.checks, proto_start, "Protocol")
         return result
+
+    smtp = _smtp
+
+    if actual_port != port:
+        result.port = actual_port
+        port = actual_port  # keep local var consistent for TLS/DANE calls below
+        result.checks.append(
+            CheckResult(
+                name="SMTP Port Fallback",
+                status=Status.INFO,
+                value=str(actual_port),
+                details=[f"Port 25 unreachable; fell back to port {actual_port}."],
+            )
+        )
 
     result.response_time_ms = round(connect_ms, 2)
     result.banner = banner

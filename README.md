@@ -14,7 +14,7 @@ $ mailvalidator check example.com
 ```
 
 ![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue)
-![Tests](https://img.shields.io/badge/tests-652%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-685%20passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 ![License](https://img.shields.io/badge/license-GPLv3-lightgrey)
 
@@ -58,9 +58,11 @@ $ mailvalidator check example.com
 ### SMTP check (RFC 5321)
 
 The SMTP check targets **external-facing MX servers** that accept inbound mail
-on **port 25** (RFC 5321 §2.1, §4.5.3.2). Port 587 is the _submission_ port
-(RFC 6409) and requires AUTH — it is a different service and these checks are
-not meaningful against it.
+on **port 25** (RFC 5321 §2.1, §4.5.3.2).  If port 25 is refused or the
+connection times out, the tool automatically retries on port **587** (RFC 6409
+submission) then port **465** (RFC 8314 implicit-TLS) before reporting failure.
+When a fallback port is used an `INFO` check named **SMTP Port Fallback** is
+prepended to the results.
 
 Results are grouped into four colour-coded panels: **Protocol** (connection,
 banner, EHLO, extensions, STARTTLS, VRFY, open relay), **TLS** (version
@@ -395,7 +397,7 @@ pytest tests/checks/test_smtp.py -v
 pytest tests/checks/test_spf.py::TestSPFCoverage -v
 ```
 
-The test suite has **652 tests** and achieves **100% coverage** (1 896
+The test suite has **685 tests** and achieves **100% coverage** (1 978
 statements) across all modules. Coverage reporting is pre-configured in
 `pyproject.toml` — no extra flags needed.
 
