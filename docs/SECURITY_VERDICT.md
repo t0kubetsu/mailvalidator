@@ -168,16 +168,31 @@ operators.
 
 ### SMTP Connect
 
-**What it checks:** The mail server is reachable on port 25 within the timeout
-and responds with a valid `220` banner.
+**What it checks:** The mail server is reachable and responds with a valid
+`220` banner.  The probe starts on **port 25** (RFC 5321); if the connection is
+refused, times out, or the banner read fails (firewall accepts TCP then drops
+the connection), it automatically retries on port **587** (RFC 6409) then
+**465** (RFC 8314) before declaring failure.
 
 **Why CRITICAL:**  
-If the server is unreachable or returns an error banner, no inbound mail can be
+If the server is unreachable on all three ports, no inbound mail can be
 delivered.  This check only generates a CRITICAL finding when it fails; a
 successful connection is informational.
 
-**Remediation:** Verify firewall rules allow inbound TCP port 25, that the MTA
-process is running, and that the `220` greeting is RFC 5321-compliant.
+**Remediation:** Verify that at least one of TCP ports 25, 587, or 465 is
+reachable from the public internet, that the MTA process is running, and that
+the `220` greeting is RFC 5321-compliant.
+
+### SMTP Port Fallback
+
+**What it checks:** Records which port was actually used when port 25 was
+unavailable and a fallback port succeeded.
+
+**Severity:** `INFO` — no penalty points.
+
+**Note:** Port 25 being blocked does not affect deliverability if the server
+accepts connections on a fallback port, but it is non-standard for an MX server
+and may indicate a misconfigured firewall or hosting provider restriction.
 
 ---
 

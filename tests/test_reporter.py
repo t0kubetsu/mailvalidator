@@ -525,7 +525,6 @@ class TestGradeText:
         assert "F" in _grade_text(g).plain
 
     def test_all_known_grades_have_style(self):
-        from mailvalidator.reporter import _GRADE_STYLE
         for letter in ("A+", "A", "B", "C", "D", "F"):
             g = Grade(letter=letter, penalty=0, rationale="")
             t = _grade_text(g)

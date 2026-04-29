@@ -5,6 +5,6 @@ from importlib.metadata import PackageNotFoundError, version
 try:
     __version__ = version("mailvalidator")
 except PackageNotFoundError:  # pragma: no cover – only when package not installed
-    __version__ = "0.1.4"
+    __version__ = "0.1.5"
 
 __all__ = ["__version__"]
