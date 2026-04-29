@@ -42,7 +42,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ---
 
-## [0.1.4] — 2025
+## [0.1.4] — 2026-04-08
 
 ### Added
 - `--json` flag on all CLI sub-commands (`check`, `smtp`, `spf`, `dmarc`,
@@ -63,7 +63,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ---
 
-## [0.1.3] — 2025
+## [0.1.3] — 2026-03-30
 
 ### Added
 - `docs/SECURITY_VERDICT.md` — CISO-facing reference explaining the
@@ -78,7 +78,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ---
 
-## [0.1.0] — 2024
+## [0.1.0] — 2026-03-13
 
 ### Added
 - Initial release of **mailvalidator**.
