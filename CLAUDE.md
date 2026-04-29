@@ -126,6 +126,11 @@ ruff check mailvalidator/
 
 Fix any F401 (unused import) or other errors before committing.
 
+Before pushing, update **CHANGELOG.md**: add your changes under `## [Unreleased]`
+using the standard sections (`### Added`, `### Changed`, `### Fixed`, `### Removed`).
+When bumping the version, move unreleased items to a new `## [x.y.z] — YYYY-MM-DD`
+section and update the comparison links at the bottom of `CHANGELOG.md`.
+
 ## Version Bumping
 
 When committing a set of changes, bump the version using semver:
