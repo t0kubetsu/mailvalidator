@@ -101,6 +101,7 @@ _PRIORITY: dict[str, VerdictSeverity | None] = {
     # Reporting/deliverability rather than active attack-surface issues
     "TLSRPT Record": VerdictSeverity.MEDIUM,
     "Reverse DNS (PTR)": VerdictSeverity.MEDIUM,
+    "PQC Key Exchange": VerdictSeverity.MEDIUM,
     # ------------------------------------------------------------------ IGNORE
     # Informational checks — outcome is always noted, never actionable.
     "SMTP Connect": VerdictSeverity.CRITICAL,  # ERROR = unreachable mail server; OK filtered by _IGNORE_STATUSES

@@ -39,6 +39,9 @@ from ._protocol import (
     _check_extensions,
 )
 
+# _pqc
+from ._pqc import _assess_pqc, _check_pqc
+
 # _tls_checks
 from ._tls_checks import (
     _check_cipher,
@@ -60,6 +63,8 @@ from ._tls_probe import (
 
 __all__ = [
     "check_smtp",
+    "_assess_pqc",
+    "_check_pqc",
     "_connect_or_fallback",
     "_SMTP_FALLBACK_PORTS",
     "_cert_info",

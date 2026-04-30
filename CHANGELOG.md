@@ -11,6 +11,21 @@ Version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ---
 
+## [0.1.6] — 2026-04-30
+
+### Added
+- **PQC Key Exchange check** — the TLS section now reports post-quantum
+  cryptography readiness for each SMTP server. Uses the vendored
+  `quantumvalidator` module (same pattern as `chainvalidator`) to probe
+  whether a PQC hybrid key exchange group (e.g. X25519MLKEM768) was
+  negotiated. Result status: `GOOD` (PQC-ready), `WARNING` (classical
+  key exchange only), or `INFO` (probe unavailable — requires OpenSSL ≥ 3.0).
+  Appears as a MEDIUM verdict action when the server is not PQC-ready.
+- **`quantumvalidator` vendored dependency** — added as a git submodule
+  under `vendor/quantumvalidator` (CNSA 2.0, BSI TR-02102-2 standards).
+
+---
+
 ## [0.1.5] — 2026-04-29
 
 ### Added

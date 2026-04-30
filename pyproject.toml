@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mailvalidator"
-version = "0.1.5"
+version = "0.1.6"
 description = "Mail server configuration assessment CLI utility"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -61,6 +61,7 @@ dependencies = [
     "aiohttp>=3.9",
     "cryptography>=42",
     "chainvalidator @ file:./vendor/chainvalidator",
+    "quantumvalidator @ file:./vendor/quantumvalidator",
 ]
 
 [project.urls]

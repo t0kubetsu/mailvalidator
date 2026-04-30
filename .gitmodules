@@ -1,3 +1,6 @@
 [submodule "vendor/chainvalidator"]
 	path = vendor/chainvalidator
 	url = https://github.com/NC3-TestingPlatform/chainvalidator
+[submodule "vendor/quantumvalidator"]
+	path = vendor/quantumvalidator
+	url = https://github.com/NC3-TestingPlatform/quantumvalidator

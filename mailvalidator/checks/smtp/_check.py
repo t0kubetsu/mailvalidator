@@ -11,6 +11,7 @@ from mailvalidator.models import CheckResult, SMTPDiagResult, Status
 from ._cert import _check_certificate
 from ._connection import _connect_plain
 from ._dns import _check_caa, _check_dane
+from ._pqc import _check_pqc
 from ._protocol import _check_banner_fqdn, _check_ehlo_domain, _check_extensions, _check_vrfy, _test_open_relay
 from ._tls_checks import (
     _check_cipher,
@@ -234,6 +235,7 @@ def check_smtp(
             _check_hash_function(tls_details, result.checks)
             _check_compression(tls_details, result.checks)
             _check_renegotiation(tls_details, result.checks)
+            _check_pqc(host, port, result.checks)
 
     _tag(result.checks, tls_start, "TLS")
 
